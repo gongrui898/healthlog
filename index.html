@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>健康记录</title>
+<title>吃练睡</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -169,11 +169,28 @@ section[hidden]{display:none}
   .ai-actions button{font-size:13px;padding:7px 14px}
   .ai-status{color:var(--dim);min-height:18px}
   .ai-status.err{color:#ff8b96}
+.fadd{display:grid;grid-template-columns:1fr 80px 54px;gap:8px;align-items:end;margin-top:6px}
+.fadd label{font-size:12px}
+.fhint{font-size:11px;color:var(--dim);margin-top:6px;min-height:14px;line-height:1.4}
+.foods{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.foods:empty{display:none}
+.frow{display:grid;grid-template-columns:1fr 62px 68px 30px;gap:6px;align-items:center;
+  background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:13px}
+.frow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow input{padding:3px 6px;font-size:13px;text-align:right}
+.frow .kc{text-align:right;color:var(--dim);font-size:12px}
+.frow button.mini{padding:0;height:24px;border-radius:8px;line-height:1}
+.ftotal{margin-top:10px;font-size:12px;color:var(--dim)}
+.ftotal b{color:var(--tx);font-size:17px;font-weight:600;margin:0 2px}
+.mealday{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);
+  margin:14px 0 6px;padding-top:6px;border-top:1px solid var(--line)}
+.mealday:first-child{border-top:0;margin-top:0;padding-top:0}
+.mealday b{color:var(--warn);font-weight:600}
 </style>
 </head>
 <body>
 <header>
-  <h1>健康记录</h1>
+  <h1>吃练睡</h1>
   <span class="sdot" id="syncDot"></span>
   <div class="chip" id="targetChip">目标 <b id="targetTxt">8h00m</b></div>
 </header>
@@ -182,9 +199,9 @@ section[hidden]{display:none}
   <div id="warnbar"></div>
 
   <div class="tabs" id="tabs">
-    <button data-tab="sleep" class="on">睡眠</button>
-    <button data-tab="ex">运动</button>
-    <button data-tab="meal">饮食</button>
+    <button data-tab="sleep" class="on">睡</button>
+    <button data-tab="ex">练</button>
+    <button data-tab="meal">吃</button>
     <button data-tab="weight">体重</button>
     <button data-tab="photo">身材</button>
     <button data-tab="review">点评</button>
@@ -525,7 +542,7 @@ section[hidden]{display:none}
 
 <dialog id="dlgMeal">
   <form method="dialog" id="formMeal">
-    <div class="dlg-h" id="mealTitle">记录饮食</div>
+    <div class="dlg-h" id="mealTitle">记录一餐</div>
     <div class="dlg-b">
       <div class="grid2">
         <div><label>日期</label><input type="date" id="mDate" required></div>
@@ -534,15 +551,16 @@ section[hidden]{display:none}
             <option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option>
           </select></div>
       </div>
-      <div>
-        <label>吃了什么</label>
-        <input id="mText" placeholder="例：米饭 + 清炒西兰花 + 鸡胸肉">
+      <div class="fadd">
+        <div><label>食物</label><input id="mFood" autocomplete="off" placeholder="例：米饭"></div>
+        <div><label>克数</label><input id="mGram" inputmode="decimal" placeholder="例 150"></div>
+        <div><label>&nbsp;</label><button type="button" id="btnAddFood" class="primary">＋</button></div>
       </div>
-      <div class="grid2">
-        <div><label>热量（千卡，可选）</label><input id="mKcal" inputmode="numeric" placeholder="例 650"></div>
-        <div><label>备注（可选）</label><input id="mNote" placeholder="在外吃、聚餐……"></div>
-      </div>
-      <div class="hint">热量不确定可以留空，工具仍然统计餐次和记录天数；填了才会算日均热量。</div>
+      <div class="fhint" id="mHint"></div>
+      <div class="foods" id="mFoods"></div>
+      <div class="ftotal">这一餐合计 <b id="mSum">0</b> 千卡</div>
+      <div><label>备注（可选）</label><input id="mNote" placeholder="在外吃、聚餐……"></div>
+      <div class="hint">填食物名和克数，热量自动算；三餐加起来就是当天总热量。库里没有的食物会问你一次每 100 g 的热量，记住后下次直接匹配。</div>
     </div>
     <div class="dlg-f">
       <button type="button" id="btnCancelMeal">取消</button>
@@ -1037,7 +1055,7 @@ function mergeRecords(current, incoming){
 }
 
 /* ---------- 通用条目（睡眠 / 运动 / 饮食 共用一套存储与同步） ---------- */
-var KINDS = { sleep: '睡眠', ex: '运动', meal: '饮食', weight: '体重' };
+var KINDS = { sleep: '睡', ex: '练', meal: '吃', weight: '体重' };
 
 function numOrNull(v){
   if (v === null || v === undefined || v === '') return null;
@@ -1177,7 +1195,8 @@ function mealStats(items, days, targetKcal){
     streak: streakOf(filled.map(function(d){ return { date: d.date, has: d.count > 0 }; })),
     entries: meals.slice().sort(function(a, b){
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-      return (a.meal || '') < (b.meal || '') ? -1 : 1;
+      var MO = { '早餐': 1, '午餐': 2, '晚餐': 3, '加餐': 4 };
+      return (MO[a.meal] || 9) - (MO[b.meal] || 9);
     })
   };
 }
@@ -1587,6 +1606,121 @@ function photoComparePair(list){
   if (d.length === 1) return { left: d[0], right: d[0] };
   return { left: d[d.length - 1], right: d[0] };
 }
+
+/* ---------- 食物库（每 100 g 千卡，常用近似值，可自行添加） ---------- */
+var FOOD_RAW = [
+  ['米饭',116,'主食'],['糙米饭',112,'主食'],['杂粮饭',115,'主食'],['白粥',46,'主食'],
+  ['小米粥',46,'主食'],['馒头',223,'主食'],['花卷',217,'主食'],['面条',110,'主食'],
+  ['米粉',97,'主食'],['全麦面包',246,'主食'],['白面包',265,'主食'],['燕麦片',377,'主食'],
+  ['玉米',112,'主食'],['红薯',86,'主食'],['紫薯',82,'主食'],['土豆',77,'主食'],
+  ['山药',57,'主食'],['饺子',240,'主食'],['包子',227,'主食'],['油条',388,'主食'],
+  ['手抓饼',330,'主食'],['煎饼',333,'主食'],['粽子',195,'主食'],
+  ['鸡蛋',144,'肉蛋'],['鸡蛋白',60,'肉蛋'],['鸡蛋黄',328,'肉蛋'],['鸡胸肉',133,'肉蛋'],
+  ['鸡腿',181,'肉蛋'],['牛肉',106,'肉蛋'],['牛腩',332,'肉蛋'],['猪里脊',155,'肉蛋'],
+  ['五花肉',508,'肉蛋'],['排骨',278,'肉蛋'],['羊肉',203,'肉蛋'],['鲈鱼',105,'肉蛋'],
+  ['三文鱼',139,'肉蛋'],['带鱼',127,'肉蛋'],['虾',93,'肉蛋'],['螃蟹',103,'肉蛋'],
+  ['牛奶',54,'奶豆'],['脱脂牛奶',33,'奶豆'],['酸奶',72,'奶豆'],['希腊酸奶',59,'奶豆'],
+  ['奶酪',328,'奶豆'],['豆腐',84,'奶豆'],['豆腐干',140,'奶豆'],['豆浆',31,'奶豆'],
+  ['腐竹',459,'奶豆'],
+  ['西兰花',36,'蔬菜'],['白菜',17,'蔬菜'],['生菜',15,'蔬菜'],['菠菜',28,'蔬菜'],
+  ['番茄',15,'蔬菜'],['黄瓜',16,'蔬菜'],['胡萝卜',39,'蔬菜'],['青椒',22,'蔬菜'],
+  ['茄子',21,'蔬菜'],['豆角',30,'蔬菜'],['蘑菇',20,'蔬菜'],['南瓜',22,'蔬菜'],
+  ['莲藕',73,'蔬菜'],['洋葱',40,'蔬菜'],['芹菜',17,'蔬菜'],['海带',13,'蔬菜'],
+  ['木耳',265,'蔬菜'],
+  ['香蕉',93,'水果'],['苹果',53,'水果'],['橙子',48,'水果'],['西瓜',31,'水果'],
+  ['葡萄',44,'水果'],['猕猴桃',61,'水果'],['梨',51,'水果'],['蓝莓',57,'水果'],
+  ['草莓',32,'水果'],['芒果',60,'水果'],['桃',51,'水果'],['火龙果',55,'水果'],
+  ['花生',574,'坚果'],['核桃',646,'坚果'],['杏仁',578,'坚果'],['瓜子',606,'坚果'],
+  ['腰果',559,'坚果'],['混合坚果',600,'坚果'],['薯片',536,'坚果'],['巧克力',546,'坚果'],
+  ['饼干',435,'坚果'],['蛋糕',348,'坚果'],['冰淇淋',127,'坚果'],
+  ['可乐',43,'饮品'],['无糖可乐',0,'饮品'],['奶茶',60,'饮品'],['拿铁',55,'饮品'],
+  ['美式咖啡',2,'饮品'],['橙汁',45,'饮品'],['啤酒',43,'饮品'],['白酒',298,'饮品'],
+  ['食用油',899,'调味'],['白糖',400,'调味'],['蜂蜜',321,'调味'],['沙拉酱',724,'调味'],
+  ['番茄酱',82,'调味'],['辣酱',500,'调味'],
+  ['炒青菜',60,'菜品'],['番茄炒蛋',90,'菜品'],['宫保鸡丁',180,'菜品'],['红烧肉',470,'菜品'],
+  ['鱼香肉丝',190,'菜品'],['麻婆豆腐',120,'菜品'],['清炒西兰花',45,'菜品'],['白切鸡',190,'菜品'],
+  ['蛋炒饭',186,'菜品'],['拉面',130,'菜品'],['麻辣烫',90,'菜品'],['火锅',120,'菜品'],
+  ['蔬菜沙拉',30,'菜品']
+];
+var FOODS = FOOD_RAW.map(function(r){ return { n: r[0], k: r[1], t: r[2] }; });
+
+function foodNorm(v){ return String(v == null ? '' : v).replace(/[\s·・、,，。.（）()【】\[\]]/g, '').toLowerCase(); }
+
+/* 手输的名字怎么对到食物库：
+   ① 别名表（白饭→米饭、鸡胸→鸡胸肉…）② 完全同名
+   ③ 输入的句子里包含哪个食物名，取最长的那个（"半碗米饭"→米饭、"清炒西兰花"→清炒西兰花）
+   ④ 反过来：输入的词是某个食物名的一部分（"鸡"→鸡蛋）
+   extra 是用户自己加过的食物，优先级最高 */
+var FOOD_ALIAS = {
+  '白饭': '米饭', '饭': '米饭', '白米饭': '米饭', '大米饭': '米饭', '杂粮饭': '杂粮饭',
+  '面条': '面条', '挂面': '面条', '拉面': '拉面', '粉': '米粉', '米线': '米粉',
+  '粥': '白粥', '小米粥': '小米粥', '蛋': '鸡蛋', '水煮蛋': '鸡蛋', '鸡蛋羹': '鸡蛋',
+  '鸡胸': '鸡胸肉', '鸡胸脯': '鸡胸肉', '鸡腿肉': '鸡腿', '瘦肉': '猪里脊', '里脊': '猪里脊',
+  '牛': '牛肉', '牛腱': '牛肉', '牛奶': '牛奶', '豆奶': '豆浆', '优酪乳': '酸奶',
+  '虾仁': '虾', '包子': '包子', '水饺': '饺子', '薯': '红薯', '地瓜': '红薯',
+  '玉米棒': '玉米', '土豆': '土豆', '马铃薯': '土豆', '西红柿': '番茄', '番茄': '番茄',
+  '青菜': '炒青菜', '生菜': '生菜', '苹果': '苹果', '香蕉': '香蕉'
+};
+
+function foodFind(name, extra){
+  var q = foodNorm(name);
+  if (!q) return null;
+  var alias = FOOD_ALIAS[name] || FOOD_ALIAS[q];
+  if (alias) q = foodNorm(alias);
+  var pool = (extra || []).concat(FOODS), i, best = null, bestLen = 0, n;
+  for (i = 0; i < pool.length; i++) if (foodNorm(pool[i].n) === q) return pool[i];
+  for (i = 0; i < pool.length; i++){
+    n = foodNorm(pool[i].n);
+    if (n && q.indexOf(n) >= 0 && n.length > bestLen){ best = pool[i]; bestLen = n.length; }
+  }
+  if (best) return best;
+  best = null;
+  for (i = 0; i < pool.length; i++){
+    n = foodNorm(pool[i].n);
+    if (n && n.indexOf(q) >= 0 && (!best || n.length < bestLen)){ best = pool[i]; bestLen = n.length; }
+  }
+  return best;
+}
+
+function foodKcalOf(k100, grams){
+  var g = Number(grams);
+  if (!k100 || !g || g <= 0) return 0;
+  return Math.round(k100 * g / 10) / 10;
+}
+
+function foodList(custom, q, limit){
+  var pool = (custom || []).concat(FOODS), out = [], seen = {}, i;
+  var key = foodNorm(q);
+  for (i = 0; i < pool.length; i++){
+    var f = pool[i], n = foodNorm(f.n);
+    if (key && n.indexOf(key) < 0 && key.indexOf(n) < 0) continue;
+    if (seen[n]) continue;
+    seen[n] = 1;
+    out.push(f);
+    if (out.length >= (limit || 500)) break;
+  }
+  return out;
+}
+
+function mealFoodsKcal(foods){
+  var t = 0;
+  (foods || []).forEach(function(f){ t += Number(f.kcal) || 0; });
+  return Math.round(t * 10) / 10;
+}
+
+function mealText(foods){
+  return (foods || []).map(function(f){ return f.n + ' ' + f.g + 'g'; }).join(' + ');
+}
+
+function mealDayTotals(items){
+  var out = {};
+  (items || []).forEach(function(it){
+    if (it.kind !== 'meal' || !it.date) return;
+    out[it.date] = Math.round(((out[it.date] || 0) + (Number(it.kcal) || 0)) * 10) / 10;
+  });
+  return out;
+}
+
 /* LOGIC-END */
 
 /* ================= 界面 ================= */
@@ -1594,11 +1728,13 @@ var state = {
   items: [], records: [], tombs: {}, target: 480, targetKg: null, days: 30, tab: 'sleep',
   revDate: null, editDate: null, editId: null, editKind: null, editing: null,
   ai: null, aiReviews: {}, aiBusy: false,
-  photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true
+  photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true,
+  customFoods: null, mealFoods: []
 };
 var LS_ITEMS = 'sleepstat.items.v2', LS_TOMBS = 'sleepstat.tombs.v2',
     LS_CFG = 'sleepstat.cfg.v2', LS_REC_V1 = 'sleepstat.records.v1', LS_CFG_V1 = 'sleepstat.cfg.v1',
-    LS_AI = 'sleepstat.ai.v1', LS_AI_REV = 'sleepstat.ai.reviews.v1';
+    LS_AI = 'sleepstat.ai.v1', LS_AI_REV = 'sleepstat.ai.reviews.v1',
+    LS_FOODS = 'sleepstat.foods.v1';
 
 function $(id){ return document.getElementById(id); }
 
@@ -1846,7 +1982,7 @@ function render(){
   Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){
     b.classList.toggle('on', b.dataset.tab === state.tab);
   });
-  $('btnAdd').textContent = '＋ ' + ({ sleep: '睡眠', ex: '运动', meal: '饮食', weight: '体重',
+  $('btnAdd').textContent = '＋ ' + ({ sleep: '睡', ex: '练', meal: '吃', weight: '体重',
     photo: '拍照', review: '记录' })[state.tab];
   if (state.tab === 'sleep') renderSleep();
   else if (state.tab === 'ex') renderEx();
@@ -2054,13 +2190,22 @@ function renderWeightList(s){
 function renderMeal(){
   var s = mealStats(state.items, state.days, 2000);
   var empty = !s.daysWith;
+  var dayTotals = mealDayTotals(state.items);
+  var today = todayIso();
+  var tKey = dayTotals[today] ? today : null;
+  if (!tKey){
+    Object.keys(dayTotals).forEach(function(d){ if (!tKey || d > tKey) tKey = d; });
+  }
+  var tVal = tKey ? dayTotals[tKey] : null;
+  var tTitle = tKey && tKey !== today ? '最近一天热量' : '今日热量';
+  var tSub = tKey ? (tKey === today ? '三餐自动加总' : tKey.slice(5) + ' 的合计') : '三餐自动加总';
   $('kpisMeal').innerHTML = [
     kpi('记录天数', empty ? '—' : s.daysWith + ' 天', '覆盖率 ' + Math.round(s.coverage * 100) + '%',
       empty ? '' : (s.coverage >= 0.6 ? 'ok' : 'warn')),
     kpi('总餐数', empty ? '—' : s.totalMeals + ' 餐', s.avgMeals !== null ? '日均 ' + s.avgMeals.toFixed(1) + ' 餐' : '暂无', ''),
     kpi('日均热量', s.avgKcal !== null ? Math.round(s.avgKcal) + ' 千卡' : '—',
       s.kcalDays ? s.kcalDays + ' 天填了热量' : '填了才算', s.avgKcal !== null ? 'accent' : ''),
-    kpi('热量合计', s.totalKcal ? Math.round(s.totalKcal) + ' 千卡' : '—', '记录时段内', ''),
+    kpi(tTitle, tVal ? Math.round(tVal) + ' 千卡' : '—', tSub, tVal ? 'accent' : ''),
     kpi('缺早餐', empty ? '—' : s.noBreakfast + ' 天', empty ? '—' : s.daysWith - s.noBreakfast + ' 天有早餐',
       empty ? '' : (s.noBreakfast > s.daysWith / 2 ? 'warn' : 'ok')),
     kpi('连续记录', s.streak ? s.streak + ' 天' : '—', '餐数与热量都在这', '')
@@ -2111,20 +2256,35 @@ function drawMeal(s){
 }
 
 function renderMealList(s){
-  var mine = s.entries.slice(0, 60);
+  var mine = s.entries.slice(0, 150);
   if (!mine.length){
-    $('listMeal').innerHTML = '<div class="muted">还没有饮食记录。点下面的「＋ 记录」，写一句吃了什么就行。</div>';
+    $('listMeal').innerHTML = '<div class="muted">还没有记录。点下面的「＋ 吃」，输入食物和克数，热量会自动算。</div>';
     return;
   }
-  $('listMeal').innerHTML = mine.map(function(it){
-    var sub = [];
-    if (it.kcal) sub.push(Math.round(it.kcal) + ' 千卡');
-    if (it.note) sub.push(it.note);
-    return '<div class="row" data-id="' + it.id + '">' +
-      '<div class="d">' + it.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(it.date)) + '</div>' +
-      '<div class="t"><span class="pill b">' + esc(it.meal || '餐') + '</span>' + esc(it.text || '') +
-      (sub.length ? '<span class="x"> · ' + esc(sub.join(' · ')) + '</span>' : '') + '</div></div>';
-  }).join('');
+  var byDate = {}, order = [];
+  mine.forEach(function(it){
+    if (!byDate[it.date]){ byDate[it.date] = []; order.push(it.date); }
+    byDate[it.date].push(it);
+  });
+  var html = '';
+  order.forEach(function(date){
+    var list = byDate[date];
+    var total = 0;
+    list.forEach(function(it){ total += Number(it.kcal) || 0; });
+    html += '<div class="mealday"><span>' + date.slice(5) + ' ' +
+      '日一二三四五六'.charAt(weekdayOf(date)) + '</span><span>当天合计 <b>' +
+      Math.round(total) + '</b> 千卡</span></div>';
+    list.forEach(function(it){
+      var sub = [];
+      if (it.note) sub.push(it.note);
+      html += '<div class="row" data-id="' + it.id + '">' +
+        '<div class="d"><span class="pill b">' + esc(it.meal || '餐') + '</span></div>' +
+        '<div class="t">' + esc(it.text || '') +
+        (sub.length ? '<span class="x"> · ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
+        '<div class="m">' + (it.kcal ? Math.round(it.kcal) : '—') + '</div></div>';
+    });
+  });
+  $('listMeal').innerHTML = html;
 }
 
 function renderIns(el, list){
@@ -2417,17 +2577,83 @@ function deleteEx(){
   toast('已删除');
 }
 
+function customFoods(){
+  if (!state.customFoods){
+    try { state.customFoods = JSON.parse(localStorage.getItem(LS_FOODS) || '[]') || []; }
+    catch (e) { state.customFoods = []; }
+  }
+  return state.customFoods;
+}
+
+function persistCustomFoods(){
+  try { localStorage.setItem(LS_FOODS, JSON.stringify(state.customFoods || [])); } catch (e) {}
+}
+
 function openMeal(id){
   state.editId = id || null;
   var it = id ? findItem(id) : null;
-  $('mealTitle').textContent = it ? '编辑饮食' : '记录饮食';
+  $('mealTitle').textContent = it ? '改这一餐' : '记录一餐';
   $('mDate').value = it ? it.date : todayIso();
   $('mMeal').value = it && it.meal ? it.meal : defaultMeal();
-  $('mText').value = it && it.text ? it.text : '';
-  $('mKcal').value = it && it.kcal ? String(Math.round(it.kcal)) : '';
   $('mNote').value = it && it.note ? it.note : '';
+  state.mealFoods = it && it.foods ? it.foods.slice() : [];
+  $('mFood').value = '';
+  $('mGram').value = '';
+  mealHint();
+  renderMealFoods();
   $('btnDelMeal').style.display = it ? 'block' : 'none';
   $('dlgMeal').showModal();
+}
+
+function mealHint(){
+  var name = $('mFood').value.trim();
+  var g = numOrNull($('mGram').value);
+  var el = $('mHint');
+  if (!el) return;
+  if (!name){ el.textContent = '直接写食物名（米饭、鸡胸肉、清炒西兰花、两个鸡蛋都行），库里有就自动算；没有会问你一次每 100 g 热量。'; return; }
+  var hit = foodFind(name, customFoods());
+  if (!hit){ el.textContent = '“' + name + '”不在库里，添加时会问你每 100 g 的热量。'; return; }
+  if (g && g > 0){
+    el.textContent = '匹配到「' + hit.n + '」' + hit.k + ' 千卡/100g · ' + g + ' g ≈ ' +
+      Math.round(foodKcalOf(hit.k, g)) + ' 千卡';
+  } else {
+    el.textContent = '匹配到「' + hit.n + '」' + hit.k + ' 千卡/100g，填克数就能算';
+  }
+}
+
+function renderMealFoods(){
+  var list = state.mealFoods || [];
+  $('mFoods').innerHTML = list.map(function(f, i){
+    return '<div class="frow" data-i="' + i + '">' +
+      '<span class="nm">' + esc(f.n) + '</span>' +
+      '<input data-role="g" inputmode="decimal" value="' + f.g + '" aria-label="克数">' +
+      '<span class="kc">' + Math.round(f.kcal) + ' 千卡</span>' +
+      '<button type="button" class="mini" data-role="del" aria-label="删除">×</button></div>';
+  }).join('');
+  $('mSum').textContent = String(Math.round(mealFoodsKcal(list)));
+}
+
+function addMealFood(){
+  var name = $('mFood').value.trim();
+  var g = numOrNull($('mGram').value);
+  if (!name){ toast('先写食物名，比如「米饭」'); return; }
+  if (!g || g <= 0){ toast('克数要大于 0'); return; }
+  var hit = foodFind(name, customFoods());
+  var k100 = hit ? hit.k : null;
+  var finalName = hit ? hit.n : name;
+  if (k100 === null){
+    var ans = prompt('「' + name + '」不在食物库里，请输入它每 100 g 的热量（千卡）：', '');
+    var v = numOrNull(ans);
+    if (!v || v <= 0){ toast('没填热量，这个食物先不加'); return; }
+    k100 = v;
+    customFoods().push({ n: name, k: v, t: '自建' });
+    persistCustomFoods();
+  }
+  state.mealFoods.push({ n: finalName, g: g, k: k100, kcal: foodKcalOf(k100, g) });
+  $('mFood').value = '';
+  $('mGram').value = '';
+  mealHint();
+  renderMealFoods();
 }
 
 function defaultMeal(){
@@ -2441,14 +2667,21 @@ function defaultMeal(){
 function saveMeal(){
   var date = $('mDate').value;
   if (!date){ toast('先选日期'); return; }
-  var text = $('mText').value.trim();
-  if (!text){ toast('写一句吃了什么，比如「米饭 + 青菜 + 鸡胸」'); return; }
+  var foods = (state.mealFoods || []).slice();
+  if (!foods.length){ toast('先加一样食物和克数，比如「米饭 150」'); return; }
+  foods.forEach(function(f){
+    var g = Number(f.g);
+    f.g = g > 0 ? g : f.g;
+    f.kcal = foodKcalOf(f.k, f.g);
+  });
+  var total = mealFoodsKcal(foods);
   var old = state.editId ? findItem(state.editId) : null;
   var it = {
     id: old ? old.id : uid('meal'), kind: 'meal', date: date,
     meal: $('mMeal').value || '加餐',
-    text: text,
-    kcal: numOrNull($('mKcal').value),
+    foods: foods,
+    text: mealText(foods),
+    kcal: Math.round(total),
     note: $('mNote').value.trim(),
     updated: nowIso()
   };
@@ -2457,7 +2690,7 @@ function saveMeal(){
   save();
   render();
   $('dlgMeal').close();
-  toast('已记录：' + it.meal + ' ' + it.text.slice(0, 12));
+  toast('已记 ' + it.meal + '：' + Math.round(total) + ' 千卡');
 }
 
 function deleteMeal(){
@@ -2584,8 +2817,13 @@ function exportCsv(){
   if (tab === 'meal'){
     var meals = itemsOf(state.items, 'meal').slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
     if (!meals.length){ toast('还没有饮食记录'); return; }
-    var mrows = [['日期', '餐次', '内容', '千卡', '备注']];
-    meals.forEach(function(it){ mrows.push([it.date, it.meal, it.text, it.kcal, it.note]); });
+    var mrows = [['日期', '餐次', '食物明细', '千卡', '备注']];
+    meals.forEach(function(it){
+      var detail = (it.foods && it.foods.length)
+        ? it.foods.map(function(f){ return f.n + ' ' + f.g + 'g'; }).join('; ')
+        : (it.text || '');
+      mrows.push([it.date, it.meal, detail, it.kcal, it.note]);
+    });
     download('饮食记录-' + todayIso() + '.csv', csvText(mrows), 'text/csv;charset=utf-8');
     toast('已导出 ' + meals.length + ' 条饮食记录');
     return;
@@ -2692,13 +2930,20 @@ function demoData(){
 
   // 饮食示例：最近 3 天，每天 3 餐
   var mealPlan = [
-    ['早餐', '全麦面包 + 鸡蛋 + 豆浆', 420], ['午餐', '米饭 + 清炒西兰花 + 鸡胸', 680],
-    ['晚餐', '杂粮饭 + 番茄牛腩 + 青菜', 620]
+    ['早餐', [['全麦面包', 80], ['鸡蛋', 100], ['豆浆', 250]]],
+    ['午餐', [['米饭', 180], ['西兰花', 150], ['鸡胸肉', 120]]],
+    ['晚餐', [['杂粮饭', 150], ['牛腩', 90], ['番茄', 200]]]
   ];
   [1, 2, 3].forEach(function(back){
     mealPlan.forEach(function(m){
+      var fs = m[1].map(function(pair){
+        var f = foodFind(pair[0], []);
+        var k = f ? f.k : 100;
+        return { n: pair[0], g: pair[1], k: k, kcal: foodKcalOf(k, pair[1]) };
+      });
       state.items.push({ id: uid('meal'), kind: 'meal', date: addDays(base, -back),
-        meal: m[0], text: m[1], kcal: m[2], note: '示例', updated: nowIso() });
+        meal: m[0], foods: fs, kcal: Math.round(mealFoodsKcal(fs)), text: mealText(fs),
+        note: '示例', updated: nowIso() });
     });
   });
 
@@ -3365,6 +3610,35 @@ function bind(){
   $('btnCancelW').onclick = function(){ $('dlgWeight').close(); };
   $('btnSaveW').onclick = function(e){ e.preventDefault(); saveWeight(); };
   $('btnDelW').onclick = function(e){ e.preventDefault(); deleteWeight(); };
+  $('btnAddFood').onclick = function(e){ e.preventDefault(); addMealFood(); };
+  $('mFood').addEventListener('input', mealHint);
+  $('mGram').addEventListener('input', mealHint);
+  ['mFood', 'mGram'].forEach(function(id){
+    $(id).addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ e.preventDefault(); addMealFood(); }
+    });
+  });
+  $('mFoods').addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('[data-role="del"]') : null;
+    if (!btn) return;
+    var row = btn.closest('[data-i]');
+    state.mealFoods.splice(Number(row.dataset.i), 1);
+    renderMealFoods();
+  });
+  $('mFoods').addEventListener('input', function(e){
+    var t = e.target;
+    if (!t || t.dataset.role !== 'g') return;
+    var row = t.closest('[data-i]');
+    var f = state.mealFoods[Number(row.dataset.i)];
+    var g = numOrNull(t.value);
+    if (f && g && g > 0){
+      f.g = g;
+      f.kcal = foodKcalOf(f.k, g);
+      var kc = row.querySelector('.kc');
+      if (kc) kc.textContent = Math.round(f.kcal) + ' 千卡';
+      $('mSum').textContent = String(Math.round(mealFoodsKcal(state.mealFoods)));
+    }
+  });
   $('btnCancelMeal').onclick = function(){ $('dlgMeal').close(); };
   $('btnSaveMeal').onclick = function(e){ e.preventDefault(); saveMeal(); };
   $('btnDelMeal').onclick = function(e){ e.preventDefault(); deleteMeal(); };
