@@ -1,7 +1,7 @@
 {
-  "name": "健康记录",
-  "short_name": "健康记录",
-  "description": "记录每天的睡眠、运动和饮食。数据只存在这台设备上，可导出 CSV / JSON。",
+  "name": "吃练睡",
+  "short_name": "吃练睡",
+  "description": "吃练睡：记录每天的睡眠、运动和饮食，吃的东西按食物和克数自动算热量。数据只存在这台设备上，可导出 CSV / JSON。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
