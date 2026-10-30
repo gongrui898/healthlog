@@ -1,0 +1,3488 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1621">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>健康记录</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#0b121b; --card:#141e2b; --card2:#1a2635; --line:#22303f;
+  --tx:#e8eef6; --dim:#8fa3b8; --accent:#4da3ff; --ok:#4dd6a0;
+  --warn:#ffb454; --bad:#ff6b7a; --night:#2c6fd1; --wake:#ffb454;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 50% -10%,#16273a 0%,var(--bg) 55%) no-repeat,
+             var(--bg);
+  color:var(--tx);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:0 0 env(safe-area-inset-bottom);
+}
+header{
+  position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);
+  background:rgba(11,18,27,.78);border-bottom:1px solid var(--line);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;align-items:center;gap:10px;
+}
+header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.5px}
+.chip{
+  margin-left:auto;background:var(--card2);border:1px solid var(--line);color:var(--dim);
+  border-radius:999px;padding:5px 12px;font-size:12px;
+}
+.chip b{color:var(--accent);font-weight:600}
+main{padding:14px 12px 96px;max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--dim);font-weight:500;letter-spacing:.4px}
+.range{display:flex;gap:6px;margin-bottom:10px}
+.range button{
+  flex:1;background:var(--card2);border:1px solid var(--line);color:var(--dim);
+  padding:7px 0;border-radius:10px;font-size:13px;
+}
+.range button.on{background:rgba(77,163,255,.16);border-color:rgba(77,163,255,.5);color:var(--accent)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.kpi .k{font-size:11px;color:var(--dim);letter-spacing:.4px}
+.kpi .v{font-size:22px;font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11px;color:var(--dim);margin-top:2px}
+.v.ok{color:var(--ok)} .v.bad{color:var(--bad)} .v.accent{color:var(--accent)} .v.warn{color:var(--warn)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.axis{fill:var(--dim);font-size:9px}
+.gline{stroke:var(--line);stroke-width:.7}
+.target{stroke:var(--ok);stroke-width:1;stroke-dasharray:3 3;opacity:.75}
+.bar{fill:url(#gbar)}
+.bar.short{fill:#c8553d}
+.weekend-bar{fill:#3a5d8f}
+.dots line{stroke:rgba(255,180,84,.28);stroke-width:.8}
+ul.ins{list-style:none;padding:0;margin:0}
+ul.ins li{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13.5px;color:#cfdbe8}
+ul.ins li:last-child{border-bottom:0}
+ul.ins .tag{flex:none;width:18px;text-align:center}
+.warn .tag{color:var(--warn)} .bad .tag{color:var(--bad)} .good .tag{color:var(--ok)} .info .tag{color:var(--dim)}
+.row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.05)}
+.row:last-child{border-bottom:0}
+.row .d{font-size:12.5px;color:var(--dim);width:74px;flex:none}
+.row .t{font-size:13px;color:#cfdbe8;flex:1;font-variant-numeric:tabular-nums}
+.row .m{font-size:14.5px;font-weight:600;font-variant-numeric:tabular-nums;min-width:62px;text-align:right}
+.row .m.s{color:var(--warn)}
+.muted{color:var(--dim);font-size:13px;text-align:center;padding:18px 0}
+.bar-actions{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(11,18,27,0),rgba(11,18,27,.92) 40%);
+}
+.bar-actions button{flex:1;border-radius:12px;padding:12px 0;font-size:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx)}
+.bar-actions button.primary{background:var(--accent);border-color:var(--accent);color:#07131f;font-weight:650}
+dialog{
+  border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--tx);
+  padding:0;width:min(94vw,460px);
+}
+dialog::backdrop{background:rgba(4,8,12,.66);backdrop-filter:blur(3px)}
+.dlg-h{padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:15px}
+.dlg-b{padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow:auto}
+.dlg-f{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px}
+.dlg-f button{flex:1;padding:11px 0;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:14px}
+.dlg-f button.primary{background:var(--accent);border-color:var(--accent);color:#07131f;font-weight:650}
+label{font-size:12px;color:var(--dim);display:block;margin-bottom:3px}
+input,textarea,select{
+  width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  color:var(--tx);padding:10px;font-size:15px;font-family:inherit;
+}
+textarea{min-height:88px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:11.5px;color:var(--dim);line-height:1.45}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-row button{flex:1;min-width:120px;padding:11px 0;border-radius:11px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font-size:13.5px}
+.btn-row button.danger{color:var(--bad);border-color:rgba(255,107,122,.4)}
+.toast{
+  position:fixed;left:50%;bottom:84px;transform:translate(-50%,14px);
+  background:#223248;color:#fff;padding:10px 16px;border-radius:12px;font-size:13.5px;
+  opacity:0;transition:.22s;z-index:50;max-width:88vw;text-align:center;pointer-events:none;
+  border:1px solid #2f4459;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.warnbar{
+  background:rgba(255,180,84,.12);border:1px solid rgba(255,180,84,.35);color:#ffcf8b;
+  border-radius:12px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;
+}
+.tabs{display:flex;gap:4px;margin:0 0 10px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:4px}
+.tabs{overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;background:transparent;border:0;color:var(--dim);padding:8px 12px;border-radius:9px;
+  font-size:13.5px;font-family:inherit;white-space:nowrap}
+.tabs button.on{background:var(--card2);color:var(--tx);font-weight:600;box-shadow:0 1px 0 rgba(255,255,255,.04)}
+section[hidden]{display:none}
+.sdot{width:7px;height:7px;border-radius:50%;background:#3d4b5c;flex:none;display:none}
+.sdot.on{display:block}
+.sdot.ok{background:var(--ok)} .sdot.busy{background:var(--warn)} .sdot.off{background:var(--bad)}
+.tagline{font-size:11.5px;color:var(--dim);margin:-2px 0 10px}
+.row .x{font-size:11.5px;color:var(--dim);flex:none;min-width:44px;text-align:right}
+.daynav{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.daynav button{flex:none;width:40px;height:38px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card2);color:var(--tx);font-size:17px;line-height:1}
+.daynav input{flex:1;text-align:center;padding:8px}
+.scorewrap{display:flex;align-items:center;gap:14px;margin:2px 0 4px}
+.scorewrap svg{width:98px;flex:none}
+.scoremeta{flex:1;min-width:0}
+.grade{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.parts{margin-top:6px}
+.part{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:12.5px;color:var(--dim)}
+.part .n{width:32px;flex:none}
+.part .track{flex:1;height:6px;border-radius:4px;background:#1d2a3a;overflow:hidden}
+.part .fill{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.part .fill.ok{background:var(--ok)} .part .fill.warn{background:var(--warn)} .part .fill.bad{background:var(--bad)}
+.part .v{width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ph{position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:#0e1621;border:1px solid var(--line)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .d{position:absolute;left:0;right:0;bottom:0;padding:4px 6px 5px;font-size:10.5px;color:#dce6f2;
+  background:linear-gradient(180deg,rgba(7,12,18,0),rgba(7,12,18,.84))}
+.ph .n{position:absolute;top:6px;right:6px;background:rgba(9,14,21,.72);border-radius:8px;
+  padding:1px 6px;font-size:10px;color:#cfdbe8;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.compare figure{margin:0}
+.compare .box{aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:#0e1621;border:1px solid var(--line);position:relative}
+.compare .box img{width:100%;height:100%;object-fit:cover;display:block}
+.compare figcaption{font-size:11.5px;color:var(--dim);text-align:center;margin-top:5px;line-height:1.4}
+.cmp-sel{display:flex;gap:8px;margin-bottom:10px}
+.cmp-sel select{flex:1;font-size:12.5px;padding:8px}
+.empty-ph{border:1px dashed var(--line);border-radius:12px;padding:24px 12px;text-align:center;
+  color:var(--dim);font-size:13px;line-height:1.6}
+.viewer img{width:100%;border-radius:12px;display:block;background:#0e1621}
+.pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);
+  border-radius:999px;padding:1px 7px;margin-right:6px}
+.pill.a{color:#9fd0ff;border-color:rgba(77,163,255,.35)}
+.pill.b{color:#ffcf8b;border-color:rgba(255,180,84,.35)}
+  .mini{font-size:12px;padding:3px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--dim);margin-left:8px;vertical-align:middle}
+  .wide{width:100%;margin-top:10px}
+  .ai-text{font-size:14px;line-height:1.65;color:var(--fg);margin:12px 0 4px;white-space:pre-wrap}
+  .ai-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+  .ai-actions button{font-size:13px;padding:7px 14px}
+  .ai-status{color:var(--dim);min-height:18px}
+  .ai-status.err{color:#ff8b96}
+</style>
+</head>
+<body>
+<header>
+  <h1>健康记录</h1>
+  <span class="sdot" id="syncDot"></span>
+  <div class="chip" id="targetChip">目标 <b id="targetTxt">8h00m</b></div>
+</header>
+
+<main>
+  <div id="warnbar"></div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="sleep" class="on">睡眠</button>
+    <button data-tab="ex">运动</button>
+    <button data-tab="meal">饮食</button>
+    <button data-tab="weight">体重</button>
+    <button data-tab="photo">身材</button>
+    <button data-tab="review">点评</button>
+  </div>
+
+  <div class="range" id="rangeBtns">
+    <button data-days="7">7 天</button>
+    <button data-days="30" class="on">30 天</button>
+    <button data-days="90">90 天</button>
+  </div>
+
+  <section id="tabSleep">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>每晚睡眠时长</h2>
+    <svg id="chartDur" viewBox="0 0 360 172" role="img" aria-label="每晚睡眠时长"></svg>
+  </div>
+
+  <div class="card">
+    <h2>入睡 / 起床时间</h2>
+    <svg id="chartTimes" viewBox="0 0 360 190" role="img" aria-label="入睡与起床时间"></svg>
+  </div>
+
+  <div class="card">
+    <h2>周平均</h2>
+    <svg id="chartWeek" viewBox="0 0 360 160" role="img" aria-label="周平均睡眠"></svg>
+  </div>
+
+  <div class="card">
+    <h2>结论</h2>
+    <ul class="ins" id="insights"></ul>
+  </div>
+
+  <div class="card">
+    <h2>每日明细</h2>
+    <div id="list"></div>
+  </div>
+  </section>
+
+  <section id="tabEx" hidden>
+    <div class="kpis" id="kpisEx"></div>
+    <div class="card">
+      <h2>每天运动时长</h2>
+      <svg id="chartEx" viewBox="0 0 360 172" role="img" aria-label="每天运动时长"></svg>
+    </div>
+    <div class="card">
+      <h2>结论</h2>
+      <ul class="ins" id="insEx"></ul>
+    </div>
+    <div class="card">
+      <h2>运动明细</h2>
+      <div id="listEx"></div>
+    </div>
+  </section>
+
+  <section id="tabMeal" hidden>
+    <div class="kpis" id="kpisMeal"></div>
+    <div class="card">
+      <h2>每天饮食</h2>
+      <svg id="chartMeal" viewBox="0 0 360 172" role="img" aria-label="每天饮食"></svg>
+    </div>
+    <div class="card">
+      <h2>结论</h2>
+      <ul class="ins" id="insMeal"></ul>
+    </div>
+    <div class="card">
+      <h2>饮食明细</h2>
+      <div id="listMeal"></div>
+    </div>
+  </section>
+
+  <section id="tabWeight" hidden>
+    <div class="kpis" id="kpisW"></div>
+    <div class="card">
+      <h2>体重趋势</h2>
+      <svg id="chartW" viewBox="0 0 360 190" role="img" aria-label="体重趋势"></svg>
+    </div>
+    <div class="card">
+      <h2>结论</h2>
+      <ul class="ins" id="insW"></ul>
+    </div>
+    <div class="card">
+      <h2>体重明细</h2>
+      <div id="listW"></div>
+    </div>
+  </section>
+
+  <section id="tabPhoto" hidden>
+    <div class="kpis" id="kpisPh"></div>
+    <div class="card">
+      <h2>前后对比</h2>
+      <div class="cmp-sel">
+        <select id="phLeft" aria-label="对比左边日期"></select>
+        <select id="phRight" aria-label="对比右边日期"></select>
+      </div>
+      <div class="compare" id="phCompare"></div>
+    </div>
+    <div class="card">
+      <h2>每日一张</h2>
+      <div class="photos" id="phGrid"></div>
+    </div>
+  </section>
+
+  <section id="tabReview" hidden>
+    <div class="card">
+      <h2>AI 点评<button id="btnAiCfg" class="mini">设置</button></h2>
+      <div class="daynav">
+        <button id="revPrev" aria-label="前一天">‹</button>
+        <input type="date" id="revDate">
+        <button id="revNext" aria-label="后一天">›</button>
+      </div>
+
+      <div id="revEmpty">
+        <p class="hint" id="revEmptyHint"></p>
+        <button id="btnAi" class="primary wide">让 AI 分析这天</button>
+      </div>
+
+      <div id="revBody" hidden>
+        <div class="scorewrap">
+          <svg id="revRing" viewBox="0 0 120 120" role="img" aria-label="当天得分"></svg>
+          <div class="scoremeta">
+            <div class="grade" id="revGrade">—</div>
+            <div class="hint" id="revSub"></div>
+          </div>
+        </div>
+        <div class="parts" id="revParts"></div>
+        <p class="ai-text" id="revSummary"></p>
+        <div class="ai-actions">
+          <button id="btnAiRedo">重新分析</button>
+          <span class="hint" id="revMeta"></span>
+        </div>
+      </div>
+
+      <p class="hint ai-status" id="revStatus"></p>
+    </div>
+
+    <div class="card">
+      <h2>做得好的</h2>
+      <ul class="ins" id="revGood"></ul>
+    </div>
+    <div class="card">
+      <h2>要注意的</h2>
+      <ul class="ins" id="revBad"></ul>
+    </div>
+    <div class="card">
+      <h2>明天这么做</h2>
+      <ul class="ins" id="revTips"></ul>
+    </div>
+    <div class="card">
+      <h2>最近 7 天 AI 评分</h2>
+      <svg id="revTrend" viewBox="0 0 360 150" role="img" aria-label="最近 7 天 AI 评分"></svg>
+      <p class="hint" id="revTrendHint"></p>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlgAi">
+  <h3>AI 设置</h3>
+  <div class="form">
+    <label>DeepSeek API Key
+      <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+    </label>
+    <label>模型
+      <input id="aiModel" list="aiModels" autocomplete="off" spellcheck="false" placeholder="deepseek-chat">
+      <datalist id="aiModels">
+        <option value="deepseek-chat"></option>
+        <option value="deepseek-reasoner"></option>
+      </datalist>
+    </label>
+    <label>接口地址
+      <input id="aiBase" autocomplete="off" spellcheck="false" placeholder="https://api.deepseek.com">
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+      <input id="aiShow" type="checkbox" style="width:auto;flex:0 0 auto"> 显示 Key
+    </label>
+    <p class="hint">Key 只存在这台设备的浏览器里，请求直接发往 DeepSeek（api.deepseek.com），不经过别的服务器。
+      在 platform.deepseek.com 创建，按量计费，一次点评大约几厘钱。</p>
+  </div>
+  <div class="btn-row">
+    <button id="btnCancelAi">取消</button>
+    <button id="btnSaveAi" class="primary">保存</button>
+  </div>
+</dialog>
+
+<div class="bar-actions">
+  <button id="btnAdd" class="primary">＋ 录入</button>
+  <button id="btnData">数据</button>
+  <button id="btnTarget">目标</button>
+</div>
+
+<dialog id="dlgAdd">
+  <form method="dialog" id="formAdd">
+    <div class="dlg-h" id="addTitle">录入一天</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期（起床日）</label><input type="date" id="fDate" required></div>
+        <div><label>睡眠时长</label><input id="fTotal" placeholder="例 7h30m"></div>
+      </div>
+      <div class="grid2">
+        <div><label>入睡时间</label><input type="time" id="fBed"></div>
+        <div><label>起床时间</label><input type="time" id="fWake"></div>
+      </div>
+      <div class="hint">时长留空时会用「入睡 → 起床」自动计算；两个都填时以填写的时长为准。</div>
+      <div class="grid2">
+        <div><label>深睡（可选）</label><input id="fDeep" placeholder="例 1h20m"></div>
+        <div><label>REM（可选）</label><input id="fRem" placeholder="例 1h05m"></div>
+      </div>
+      <div><label>备注（可选）</label><input id="fNote" placeholder="加班、出差、喝酒……"></div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelAdd">取消</button>
+      <button type="button" class="primary" id="btnSaveAdd">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgData">
+  <div class="dlg-h">数据</div>
+  <div class="dlg-b">
+    <div>
+      <label>从文件导入（CSV / TSV / JSON）</label>
+      <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.json,text/csv,application/json">
+      <div class="hint">同一天已有记录会被这次导入覆盖。</div>
+    </div>
+    <div>
+      <label>粘贴文本导入（CSV 一行一天）</label>
+      <textarea id="pasteBox" placeholder="日期,入睡,起床,睡眠时长&#10;2026-10-01,23:40,07:10,7小时30分"></textarea>
+      <div class="btn-row" style="margin-top:8px"><button id="btnPaste">解析粘贴内容</button></div>
+    </div>
+    <div>
+      <label>导出</label>
+      <div class="btn-row">
+        <button id="btnExportCsv">导出 CSV</button>
+        <button id="btnBackup">备份 JSON</button>
+      </div>
+    </div>
+    <div>
+      <label>身材照片（单独备份）</label>
+      <div class="btn-row">
+        <button id="btnPhotoBackup">导出照片备份</button>
+        <button id="btnPhotoRestore">从照片备份恢复</button>
+      </div>
+      <div class="hint">照片存在本机数据库里，不进 JSON 备份、也不走同步服务，换机前用这两个按钮单独导一份。</div>
+    </div>
+    <div>
+      <label>恢复</label>
+      <div class="btn-row">
+        <button id="btnRestore">从 JSON 备份恢复</button>
+        <button id="btnDemo">载入示例</button>
+      </div>
+      <input type="file" id="restoreInput" accept=".json,application/json" style="display:none">
+    </div>
+    <div>
+      <label>装到手机</label>
+      <div class="btn-row"><button id="btnInstall">安装到桌面</button></div>
+      <div class="hint" id="installHint">装好后从桌面直接打开，断网也能用；数据只存在这台设备，换机前记得用上面的「备份 JSON」导出一份。</div>
+    </div>
+    <div class="btn-row">
+      <button class="danger" id="btnClear">清空全部记录</button>
+    </div>
+  </div>
+  <div class="dlg-f"><button class="primary" id="btnCloseData">关闭</button></div>
+</dialog>
+
+<dialog id="dlgEx">
+  <form method="dialog" id="formEx">
+    <div class="dlg-h" id="exTitle">记录运动</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期</label><input type="date" id="eDate" required></div>
+        <div><label>类型</label>
+          <select id="eType">
+            <option>走路</option><option>跑步</option><option>骑行</option><option>游泳</option>
+            <option>力量训练</option><option>球类</option><option>瑜伽</option><option>跳绳</option><option>其他</option>
+          </select></div>
+      </div>
+      <div class="grid2">
+        <div><label>时长（分钟）</label><input id="eMin" placeholder="例 45"></div>
+        <div><label>消耗（千卡，可选）</label><input id="eKcal" inputmode="numeric" placeholder="例 380"></div>
+      </div>
+      <div class="grid2">
+        <div><label>距离（公里，可选）</label><input id="eKm" inputmode="decimal" placeholder="例 5.2"></div>
+        <div><label>备注（可选）</label><input id="eNote" placeholder="夜跑、私教课……"></div>
+      </div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelEx">取消</button>
+      <button type="button" id="btnDelEx" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSaveEx">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPhoto">
+  <form method="dialog" id="formPhoto" onsubmit="return false">
+    <div class="dlg-h" id="phTitle">记录身材</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期</label><input type="date" id="phDate" required></div>
+        <div><label>备注（可选）</label><input id="phNote" placeholder="晨起空腹、同角度……"></div>
+      </div>
+      <div class="viewer" id="phPreview"></div>
+      <div class="hint">姿势、光线、时间保持一致，前后对比才有意义。照片只存在这台设备上，不会上传。</div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelPh">取消</button>
+      <button type="button" id="btnDelPh" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSavePh">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<input type="file" id="fPhoto" accept="image/*" capture="user" style="display:none">
+<input type="file" id="fPhotoBackup" accept=".json,application/json" style="display:none">
+
+<dialog id="dlgWeight">
+  <form method="dialog" id="formWeight">
+    <div class="dlg-h" id="wTitle">记录体重</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期</label><input type="date" id="wDate" required></div>
+        <div><label>体重（kg）</label><input id="wKg" inputmode="decimal" placeholder="例 74.6"></div>
+      </div>
+      <div class="grid2">
+        <div><label>体脂（%，可选）</label><input id="wFat" inputmode="decimal" placeholder="例 21.5"></div>
+        <div><label>备注（可选）</label><input id="wNote" placeholder="空腹、运动后……"></div>
+      </div>
+      <div class="hint">固定同一时间称最准，推荐早上起床、上完厕所、空腹。</div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelW">取消</button>
+      <button type="button" id="btnDelW" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSaveW">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgMeal">
+  <form method="dialog" id="formMeal">
+    <div class="dlg-h" id="mealTitle">记录饮食</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期</label><input type="date" id="mDate" required></div>
+        <div><label>餐次</label>
+          <select id="mMeal">
+            <option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option>
+          </select></div>
+      </div>
+      <div>
+        <label>吃了什么</label>
+        <input id="mText" placeholder="例：米饭 + 清炒西兰花 + 鸡胸肉">
+      </div>
+      <div class="grid2">
+        <div><label>热量（千卡，可选）</label><input id="mKcal" inputmode="numeric" placeholder="例 650"></div>
+        <div><label>备注（可选）</label><input id="mNote" placeholder="在外吃、聚餐……"></div>
+      </div>
+      <div class="hint">热量不确定可以留空，工具仍然统计餐次和记录天数；填了才会算日均热量。</div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelMeal">取消</button>
+      <button type="button" id="btnDelMeal" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSaveMeal">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 纯逻辑（可在 node 里单独测试） ================= */
+/* LOGIC-START */
+var ALIASES = {
+  date: ['日期','日期时间','睡眠日期','date','day','sleepdate'],
+  bedtime: ['入睡','入睡时间','上床时间','入睡时刻','bedtime','bed','start','sleepstart'],
+  waketime: ['起床','起床时间','醒来','醒来时间','waketime','wake','end','sleepend'],
+  total: ['时长','睡眠时长','总时长','睡眠总时长','夜间时长','夜间分钟','睡眠分钟','睡眠时间','total','duration','sleepduration','totalsleepminutes','minutes'],
+  deep: ['深睡','深睡时长','深度睡眠','深睡眠','deep','deepminutes'],
+  light: ['浅睡','浅睡时长','轻度睡眠','浅睡眠','light','lightminutes'],
+  rem: ['rem','rem时长','rem睡眠','快速眼动'],
+  awake: ['清醒','夜醒','清醒时长','夜醒时长','awake','awakeminutes'],
+  awakenings: ['清醒次数','醒来次数','夜醒次数','awakenings','wakecount'],
+  score: ['评分','得分','睡眠评分','睡眠得分','score','sleepscore'],
+  note: ['备注','说明','note','notes','comment','memo']
+};
+
+function pad2(n){ n = String(n); return n.length < 2 ? '0' + n : n; }
+function isoDate(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function addDays(iso, n){ var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return isoDate(d); }
+function todayIso(){ return isoDate(new Date()); }
+function mmOf(h, m){ return ((h % 24) * 60 + m) % 1440; }
+
+function normHeader(s){
+  return String(s == null ? '' : s).toLowerCase()
+    .replace(/[\s_\-()（）\[\]【】:：*、,，."'“”]/g, '');
+}
+
+function numToMin(v, unit){
+  if (unit === 'minute') return Math.round(v);
+  if (unit === 'hour') return Math.round(v * 60);
+  return v < 25 ? Math.round(v * 60) : Math.round(v);
+}
+
+function parseDuration(v, unit){
+  unit = unit || 'auto';
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return numToMin(v, unit);
+  var s = String(v).trim().toLowerCase().replace(/：/g, ':');
+  if (!s) return null;
+  var hm = s.match(/^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/);
+  if (hm) return (+hm[1]) * 60 + (+hm[2]);
+  var days = 0, hours = 0, mins = 0, found = false;
+  var md = s.match(/(\d+(?:\.\d+)?)\s*(?:天|日|day|days)/);
+  if (md){ days = parseFloat(md[1]); found = true; }
+  var mh = s.match(/(\d+(?:\.\d+)?)\s*(?:小时|个小时|时|hrs|hr|h)/);
+  if (mh){ hours = parseFloat(mh[1]); found = true; }
+  var mm = s.match(/(\d+)\s*(?:分钟|分|mins|min|m(?![a-z]))/);
+  if (mm){ mins = parseInt(mm[1], 10); found = true; }
+  if (found) return Math.round(days * 1440 + hours * 60 + mins);
+  var only = s.replace(/[^\d.]/g, '');
+  if (only && /^[\d.]+$/.test(only)){
+    var num = Number(only);
+    if (!isNaN(num) && num > 0) return numToMin(num, unit);
+  }
+  return null;
+}
+
+function parseDate(v){
+  if (v === null || v === undefined || v === '') return null;
+  var sv = String(v).trim();
+  if (/^\d{5}(\.\d+)?$/.test(sv)){
+    var n = Number(sv);
+    if (n > 20000 && n < 80000){
+      var d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+      return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+    }
+  }
+  var m = sv.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+  if (m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+  m = sv.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m) return m[3] + '-' + pad2(m[1]) + '-' + pad2(m[2]);
+  return null;
+}
+
+function parseTime(v){
+  if (v === null || v === undefined || v === '') return null;
+  var s = String(v).trim().replace(/：/g, ':');
+  if (!s) return null;
+  var m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) return mmOf(+m[1], +m[2]);
+  m = s.match(/(\d{1,2})\s*[时点]\s*(\d{1,2})?/);
+  if (m) return mmOf(+m[1], +(m[2] || 0));
+  m = s.match(/^(\d{1,2})$/);
+  if (m && +m[1] <= 24) return mmOf(+m[1], 0);
+  return null;
+}
+
+function fmtHM(v){
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  var neg = v < 0, x = Math.round(Math.abs(v));
+  var h = Math.floor(x / 60), m = x % 60;
+  return (neg ? '-' : '') + h + 'h' + pad2(m) + 'm';
+}
+function fmtHMShort(v){
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  var neg = v < 0, x = Math.round(Math.abs(v));
+  var h = Math.floor(x / 60), m = x % 60;
+  return (neg ? '-' : '') + h + 'h' + (m ? pad2(m) + 'm' : '');
+}
+function fmtClock(min){
+  if (min === null || min === undefined || isNaN(min)) return '—';
+  var x = Math.round(((min % 1440) + 1440) % 1440);
+  return pad2(Math.floor(x / 60)) + ':' + pad2(x % 60);
+}
+
+function detectDelim(lines){
+  var head = lines.slice(0, 5).join('\n');
+  var cands = [',', '\t', ';', '|'];
+  var best = ',', bestN = -1;
+  for (var i = 0; i < cands.length; i++){
+    var n = head.split(cands[i]).length;
+    if (n > bestN){ bestN = n; best = cands[i]; }
+  }
+  return bestN > 1 ? best : ',';   /* 只有 2 列也要能认出来（例如 3 列 TSV） */
+}
+
+function splitLine(line, d){
+  var out = [], cur = '', q = false;
+  for (var i = 0; i < line.length; i++){
+    var ch = line[i];
+    if (q){
+      if (ch === '"'){
+        if (line[i + 1] === '"'){ cur += '"'; i++; } else { q = false; }
+      } else { cur += ch; }
+    } else if (ch === '"'){ q = true; }
+    else if (ch === d){ out.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  out.push(cur);
+  return out.map(function(s){ return s.trim(); });
+}
+
+function mapHeader(cells){
+  var map = {}, used = {};
+  var fields = Object.keys(ALIASES);
+  cells.forEach(function(c, i){
+    var n = normHeader(c);
+    if (!n || used[i]) return;
+    fields.forEach(function(f){
+      if (map[f] !== undefined) return;
+      if (ALIASES[f].some(function(a){ return normHeader(a) === n; })){ map[f] = i; used[i] = 1; }
+    });
+  });
+  cells.forEach(function(c, i){
+    var n = normHeader(c);
+    if (!n || used[i] || n.length < 2) return;
+    fields.forEach(function(f){
+      if (map[f] !== undefined) return;
+      if (ALIASES[f].some(function(a){
+        var na = normHeader(a);
+        return na.length >= 2 && n.indexOf(na) >= 0;
+      })){ map[f] = i; used[i] = 1; }
+    });
+  });
+  return Object.keys(map).length ? map : null;
+}
+
+function normalizeRow(r, unit){
+  var dateCol = parseDate(r.date);
+  var bed = parseTime(r.bedtime);
+  var wake = parseTime(r.waketime);
+  var date = dateCol;
+
+  if (!date){
+    var bedDate = parseDate(r.bedtime);
+    if (bedDate){
+      date = bedDate;
+      if (bed !== null && bed >= 720) date = addDays(bedDate, 1);
+    }
+  }
+  var total = parseDuration(r.total, unit);
+  if (!total && bed !== null && wake !== null){
+    var d = (wake - bed + 1440) % 1440;
+    total = d === 0 ? 1440 : d;
+  }
+  if (!date || !total || total < 30 || total > 1500) return null;
+
+  var stage = function(v){ var x = parseDuration(v, 'auto'); return x === null ? null : Math.round(x); };
+  var intOrNull = function(v){
+    if (v === null || v === undefined || v === '') return null;
+    var n = parseInt(String(v).replace(/[^\d-]/g, ''), 10);
+    return isNaN(n) ? null : n;
+  };
+  return {
+    date: date,
+    bed: bed,
+    wake: wake,
+    total: Math.round(total),
+    deep: stage(r.deep),
+    light: stage(r.light),
+    rem: stage(r.rem),
+    awake: stage(r.awake),
+    awakenings: intOrNull(r.awakenings),
+    score: intOrNull(r.score),
+    note: r.note ? String(r.note).trim() : ''
+  };
+}
+
+function recordsFromCSV(text, unit){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim() !== ''; });
+  if (!lines.length) return { records: [], bad: 0, error: '文件是空的' };
+  var delim = detectDelim(lines);
+  var cells = lines.map(function(l){ return splitLine(l, delim); });
+
+  var header = -1, mapping = null;
+  for (var i = 0; i < Math.min(cells.length, 8); i++){
+    var m = mapHeader(cells[i]);
+    if (!m) continue;
+    var hasDate = m.date !== undefined || m.bedtime !== undefined || m.waketime !== undefined;
+    if (hasDate){ header = i; mapping = m; break; }
+  }
+  if (header < 0) return { records: [], bad: 0, error: '没找到表头（需要「日期」「入睡」「时长」这类列名）' };
+
+  var out = [], bad = 0;
+  for (var j = header + 1; j < cells.length; j++){
+    var row = cells[j], obj = {};
+    Object.keys(mapping).forEach(function(f){ obj[f] = row[mapping[f]]; });
+    var rec = normalizeRow(obj, unit);
+    if (rec) out.push(rec); else bad++;
+  }
+  return { records: out, bad: bad };
+}
+
+function recordsFromJSON(data, unit){
+  var arr = data;
+  if (!Array.isArray(arr)){
+    var keys = ['data', 'records', 'items', 'list', 'nights', 'sleep', 'rows'];
+    for (var i = 0; i < keys.length; i++){
+      if (Array.isArray(data[keys[i]])){ arr = data[keys[i]]; break; }
+    }
+  }
+  if (!Array.isArray(arr)) return { records: [], bad: 0, error: 'JSON 里没有找到记录数组' };
+  var out = [], bad = 0;
+  arr.forEach(function(item){
+    if (item === null || typeof item !== 'object'){ bad++; return; }
+    var flat = {
+      date: item.date || item.day || item.startDate,
+      bedtime: item.bedtime || item.bed || item.start || item.sleepStart,
+      waketime: item.waketime || item.wake || item.end || item.sleepEnd,
+      total: item.total || item.total_sleep_minutes || item.duration || item.minutes || item.sleepMinutes,
+      deep: item.deep, light: item.light, rem: item.rem,
+      awake: item.awake, awakenings: item.awakenings, score: item.score, note: item.note
+    };
+    var rec = normalizeRow(flat, unit);
+    if (rec) out.push(rec); else bad++;
+  });
+  return { records: out, bad: bad };
+}
+
+function parseImportText(text, unit){
+  var t = String(text || '').replace(/^\uFEFF/, '');
+  var first = t.trim().charAt(0);
+  if (first === '[' || first === '{'){
+    try { return recordsFromJSON(JSON.parse(t), unit); }
+    catch (e){ return { records: [], bad: 0, error: 'JSON 解析失败：' + e.message }; }
+  }
+  return recordsFromCSV(t, unit);
+}
+
+function windowDays(records, n){
+  if (!records.length) return [];
+  var sorted = records.slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var last = sorted[sorted.length - 1].date;
+  var map = {};
+  sorted.forEach(function(r){ map[r.date] = r; });
+  var out = [];
+  for (var i = n - 1; i >= 0; i--){
+    var iso = addDays(last, -i);
+    out.push({ date: iso, rec: map[iso] || null });
+  }
+  return out;
+}
+
+function anchorBed(min){
+  if (min === null || min === undefined) return null;
+  return min < 720 ? min + 1440 : min;
+}
+
+function mean(arr){
+  var v = arr.filter(function(x){ return x !== null && x !== undefined && !isNaN(x); });
+  if (!v.length) return null;
+  var s = 0;
+  for (var i = 0; i < v.length; i++) s += v[i];
+  return s / v.length;
+}
+
+function median(arr){
+  var v = arr.filter(function(x){ return x !== null && x !== undefined && !isNaN(x); }).sort(function(a, b){ return a - b; });
+  if (!v.length) return null;
+  var mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+function stdev(arr){
+  var v = arr.filter(function(x){ return x !== null && x !== undefined && !isNaN(x); });
+  if (v.length < 2) return null;
+  var m = mean(v), s = 0;
+  for (var i = 0; i < v.length; i++) s += (v[i] - m) * (v[i] - m);
+  return Math.sqrt(s / v.length);
+}
+
+function weekdayOf(iso){
+  var d = new Date(iso + 'T00:00:00');
+  return d.getDay();
+}
+
+function streakDays(records){
+  if (!records.length) return 0;
+  var sorted = records.slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  var set = {};
+  sorted.forEach(function(r){ set[r.date] = 1; });
+  var cur = sorted[sorted.length - 1].date, n = 0;
+  while (set[cur]){ n++; cur = addDays(cur, -1); }
+  return n;
+}
+
+function computeStats(records, days, target){
+  var filled = windowDays(records, days);
+  var recorded = filled.filter(function(d){ return d.rec; }).map(function(d){ return d.rec; });
+  var nights = recorded.map(function(r){ return r.total; }).filter(function(v){ return v > 0; });
+  var beds = recorded.map(function(r){ return anchorBed(r.bed); }).filter(function(v){ return v !== null; });
+  var wakes = recorded.map(function(r){ return r.wake; }).filter(function(v){ return v !== null && v !== undefined; });
+
+  var stages = { deep: 0, light: 0, rem: 0 };
+  var stageBase = 0;
+  recorded.forEach(function(r){
+    var has = false;
+    ['deep', 'light', 'rem'].forEach(function(k){
+      if (r[k]){ stages[k] += r[k]; has = true; }
+    });
+    if (has) stageBase += r.total;
+  });
+
+  var diffTotal = 0;
+  nights.forEach(function(v){ diffTotal += v - target; });
+
+  var hits = nights.filter(function(v){ return v >= target; }).length;
+  var short = nights.filter(function(v){ return v < 390; }).length;
+
+  var wd = [], we = [];
+  recorded.forEach(function(r){
+    var g = weekdayOf(r.date);
+    if (g === 0 || g === 6) we.push(r.total); else wd.push(r.total);
+  });
+
+  var recent = recorded.slice(-7).map(function(r){ return r.total; });
+  var prev = recorded.slice(-14, -7).map(function(r){ return r.total; });
+
+  var minV = null, maxV = null, minD = null, maxD = null;
+  recorded.forEach(function(r){
+    if (!r.total) return;
+    if (minV === null || r.total < minV){ minV = r.total; minD = r.date; }
+    if (maxV === null || r.total > maxV){ maxV = r.total; maxD = r.date; }
+  });
+
+  return {
+    window: days,
+    start: filled.length ? filled[0].date : null,
+    end: filled.length ? filled[filled.length - 1].date : null,
+    filled: filled,
+    recorded: recorded.length,
+    coverage: filled.length ? recorded.length / filled.length : 0,
+    target: target,
+    mean: mean(nights),
+    median: median(nights),
+    min: minV, minDate: minD, max: maxV, maxDate: maxD,
+    hit: hits,
+    n: nights.length,
+    diffTotal: diffTotal,
+    diffPerDay: nights.length ? diffTotal / nights.length : null,
+    bedMedian: median(beds),
+    bedSD: stdev(beds),
+    wakeMedian: median(wakes),
+    wakeSD: stdev(wakes),
+    stages: stages,
+    stageBase: stageBase,
+    short: short,
+    weekdayAvg: mean(wd),
+    weekendAvg: mean(we),
+    recent7: mean(recent),
+    prev7: prev.length >= 3 ? mean(prev) : null,
+    streak: streakDays(records)
+  };
+}
+
+function buildInsights(s){
+  var out = [];
+  var add = function(level, text){ out.push({ level: level, text: text }); };
+  if (!s.n){ return [{ level: 'info', text: '这段时间还没有记录，先录入或导入数据。' }]; }
+
+  if (s.coverage < 0.8){
+    add('warn', '记录覆盖率 ' + Math.round(s.coverage * 100) + '%（' + s.recorded + '/' + s.window +
+      ' 天），漏掉的那几天往往是作息最乱的日子，结论会偏乐观。');
+  }
+  var rate = s.hit / s.n;
+  if (rate < 0.5){
+    add('bad', '达标率 ' + s.hit + '/' + s.n + ' = ' + Math.round(rate * 100) + '%（目标 ' + fmtHM(s.target) +
+      '），日均比目标少 ' + fmtHMShort(-s.diffPerDay) + '。');
+  } else if (rate >= 0.8){
+    add('good', '达标率 ' + s.hit + '/' + s.n + ' = ' + Math.round(rate * 100) + '%，目标基本守住了。');
+  } else {
+    add('info', '达标率 ' + s.hit + '/' + s.n + ' = ' + Math.round(rate * 100) + '%，刚好过半，还差一口气。');
+  }
+  if (s.short){
+    add('warn', '有 ' + s.short + ' 天夜间睡眠不足 6h30m，最短 ' + fmtHM(s.min) + '（' + s.minDate.slice(5) + '）。');
+  }
+  if (s.diffTotal < -360){
+    add('warn', '累计睡眠差额 ' + fmtHM(s.diffTotal) + '（日均 ' + fmtHM(s.diffPerDay) + '），是持续的欠账。');
+  } else if (s.diffTotal > 360){
+    add('good', '累计睡眠差额 ' + fmtHM(s.diffTotal) + '，这段时间睡得比目标多。');
+  }
+  if (s.bedMedian !== null){
+    var anchored = s.bedMedian % 1440;
+    if (anchored < 360){ /* 00:00-06:00 入睡 */
+      add('warn', '入睡时间中位数 ' + fmtClock(s.bedMedian) + '，已经晚于 24:00，等于每晚都在往后压。');
+    } else if (anchored >= 1200 && anchored <= 1350){
+      add('good', '入睡时间中位数 ' + fmtClock(s.bedMedian) + '，入睡点稳定在午夜前后。');
+    }
+  }
+  if (s.bedSD !== null && s.bedSD > 45){
+    add('warn', '入睡时间波动 ±' + Math.round(s.bedSD) + ' 分钟，作息不规律本身就伤睡眠质量。');
+  } else if (s.bedSD !== null && s.bedSD <= 30){
+    add('good', '入睡时间波动只有 ±' + Math.round(s.bedSD) + ' 分钟，作息相当规律。');
+  }
+  if (s.weekendAvg !== null && s.weekdayAvg !== null && s.weekendAvg - s.weekdayAvg > 45){
+    add('warn', '周末比工作日多睡 ' + fmtHMShort(s.weekendAvg - s.weekdayAvg) + '（' +
+      fmtHM(s.weekendAvg) + ' vs ' + fmtHM(s.weekdayAvg) + '），典型的周末补觉，说明工作日欠得比较多。');
+  }
+  if (s.prev7 !== null && s.recent7 !== null){
+    var delta = s.recent7 - s.prev7;
+    if (Math.abs(delta) >= 15){
+      add(delta > 0 ? 'good' : 'warn', '最近 7 天平均 ' + fmtHM(s.recent7) + '，比前 7 天' +
+        (delta > 0 ? '多 ' : '少 ') + fmtHMShort(Math.abs(delta)) + '。');
+    }
+  }
+  if (s.stageBase > 0){
+    var deepRatio = s.stages.deep / s.stageBase;
+    if (deepRatio < 0.18){
+      add('warn', '深睡占比 ' + Math.round(deepRatio * 100) + '%（' + fmtHM(s.stages.deep) + '），低于常见的 20-25%。');
+    } else if (deepRatio >= 0.2){
+      add('good', '深睡占比 ' + Math.round(deepRatio * 100) + '%，在正常区间。');
+    }
+  }
+  if (s.streak >= 7){
+    add('good', '已连续记录 ' + s.streak + ' 天，数据够撑一条滚动基线了。');
+  }
+  return out;
+}
+
+function weeklyRows(records, nWeeks){
+  if (!records.length) return [];
+  var byWeek = {};
+  records.forEach(function(r){
+    var d = new Date(r.date + 'T00:00:00');
+    var diff = (d.getDay() + 6) % 7;           // 周一为起点
+    var monday = addDays(r.date, -diff);
+    if (!byWeek[monday]) byWeek[monday] = { start: monday, vals: [] };
+    byWeek[monday].vals.push(r.total);
+  });
+  var keys = Object.keys(byWeek).sort();
+  var rows = keys.slice(-nWeeks).map(function(k){
+    return { start: k, n: byWeek[k].vals.length, avg: mean(byWeek[k].vals) };
+  });
+  return rows;
+}
+
+function mergeRecords(current, incoming){
+  var map = {};
+  current.forEach(function(r){ map[r.date] = r; });
+  var added = 0, updated = 0, same = 0;
+  incoming.forEach(function(r){
+    var old = map[r.date];
+    if (!old){ map[r.date] = r; added++; return; }
+    if (JSON.stringify(old) === JSON.stringify(r)){ same++; return; }
+    map[r.date] = r;
+    updated++;
+  });
+  var list = Object.keys(map).sort().map(function(k){ return map[k]; });
+  return { list: list, added: added, updated: updated, same: same };
+}
+
+/* ---------- 通用条目（睡眠 / 运动 / 饮食 共用一套存储与同步） ---------- */
+var KINDS = { sleep: '睡眠', ex: '运动', meal: '饮食', weight: '体重' };
+
+function numOrNull(v){
+  if (v === null || v === undefined || v === '') return null;
+  var n = Number(v);
+  return isFinite(n) ? n : null;
+}
+
+function itemsOf(items, kind){
+  return (items || []).filter(function(it){ return it && it.kind === kind; });
+}
+
+function recordsFromItems(items){
+  return itemsOf(items, 'sleep').map(function(it){
+    return {
+      date: it.date,
+      bed: numOrNull(it.bed), wake: numOrNull(it.wake), total: numOrNull(it.total) || 0,
+      deep: numOrNull(it.deep), light: numOrNull(it.light), rem: numOrNull(it.rem),
+      awake: numOrNull(it.awake), awakenings: numOrNull(it.awakenings), score: numOrNull(it.score),
+      note: it.note || ''
+    };
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+}
+
+function latestDate(items){
+  var max = null;
+  (items || []).forEach(function(it){ if (it.date && (!max || it.date > max)) max = it.date; });
+  return max;
+}
+
+function dayKeys(endDate, n){
+  var out = [];
+  for (var i = n - 1; i >= 0; i--) out.push(addDays(endDate, -i));
+  return out;
+}
+
+function sumByDate(items, kind, field){
+  var map = {};
+  (items || []).forEach(function(it){
+    if (!it || it.kind !== kind || !it.date) return;
+    var v = numOrNull(it[field]);
+    if (v === null) return;
+    map[it.date] = (map[it.date] || 0) + v;
+  });
+  return map;
+}
+
+function countByDate(items, kind){
+  var map = {};
+  (items || []).forEach(function(it){ if (it && it.kind === kind && it.date) map[it.date] = (map[it.date] || 0) + 1; });
+  return map;
+}
+
+function streakOf(dayList){          // dayList: [{date, has}] 按日期升序
+  var streak = 0;
+  for (var i = dayList.length - 1; i >= 0; i--){
+    if (dayList[i].has) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function exStats(items, days, targetMin){
+  var exs = itemsOf(items, 'ex');
+  var end = latestDate(exs) || todayIso();
+  var keys = dayKeys(end, days);
+  var mins = sumByDate(items, 'ex', 'minutes');
+  var kcals = sumByDate(items, 'ex', 'kcal');
+  var cnt = countByDate(items, 'ex');
+  var filled = keys.map(function(d){
+    return { date: d, minutes: mins[d] || 0, kcal: kcals[d] || 0, count: cnt[d] || 0 };
+  });
+  var total = 0, totalKcal = 0, activeDays = 0, best = null;
+  filled.forEach(function(d){
+    total += d.minutes; totalKcal += d.kcal;
+    if (d.minutes > 0){
+      activeDays++;
+      if (!best || d.minutes > best.minutes) best = d;
+    }
+  });
+  var last7 = 0;
+  filled.slice(-7).forEach(function(d){ last7 += d.minutes; });
+  var prev7 = 0;
+  filled.slice(-14, -7).forEach(function(d){ prev7 += d.minutes; });
+  var byType = {};
+  exs.forEach(function(it){
+    if (it.date < keys[0] || it.date > keys[keys.length - 1]) return;
+    var t = it.type || '其他';
+    byType[t] = (byType[t] || 0) + (numOrNull(it.minutes) || 0);
+  });
+  var types = Object.keys(byType).map(function(k){ return { type: k, minutes: byType[k] }; })
+    .sort(function(a, b){ return b.minutes - a.minutes; });
+  var target = targetMin || 150;
+  return {
+    kind: 'ex', days: days, keys: keys, filled: filled,
+    total: total, totalKcal: totalKcal, activeDays: activeDays,
+    avgPerDay: total / days, avgPerActive: activeDays ? total / activeDays : null,
+    best: best, last7: last7, prev7: prev7, target: target,
+    coverage: activeDays / days, types: types,
+    streak: streakOf(filled.map(function(d){ return { date: d.date, has: d.minutes > 0 }; })),
+    hit: filled.filter(function(d){ return d.minutes >= target / 7; }).length,
+    entries: exs.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; })
+  };
+}
+
+function mealStats(items, days, targetKcal){
+  var meals = itemsOf(items, 'meal');
+  var end = latestDate(meals) || todayIso();
+  var keys = dayKeys(end, days);
+  var kcals = sumByDate(items, 'meal', 'kcal');
+  var cnt = countByDate(items, 'meal');
+  var filled = keys.map(function(d){ return { date: d, count: cnt[d] || 0, kcal: kcals[d] || 0 }; });
+  var daysWith = 0, totalMeals = 0, totalKcal = 0, kcalDays = 0, noBreakfast = 0;
+  var byMeal = {};
+  filled.forEach(function(d){
+    if (d.count > 0) daysWith++;
+    totalMeals += d.count;
+    if (d.kcal > 0){ totalKcal += d.kcal; kcalDays++; }
+  });
+  meals.forEach(function(it){
+    if (it.date < keys[0] || it.date > keys[keys.length - 1]) return;
+    var m = it.meal || '其他';
+    byMeal[m] = (byMeal[m] || 0) + 1;
+  });
+  filled.forEach(function(d){
+    if (d.count > 0){
+      var has = meals.some(function(it){ return it.date === d.date && it.meal === '早餐'; });
+      if (!has) noBreakfast++;
+    }
+  });
+  var target = targetKcal || 2000;
+  return {
+    kind: 'meal', days: days, keys: keys, filled: filled,
+    totalMeals: totalMeals, daysWith: daysWith, totalKcal: totalKcal, kcalDays: kcalDays,
+    avgMeals: daysWith ? totalMeals / daysWith : null,
+    avgKcal: kcalDays ? totalKcal / kcalDays : null,
+    coverage: daysWith / days, noBreakfast: noBreakfast, byMeal: byMeal, targetKcal: target,
+    streak: streakOf(filled.map(function(d){ return { date: d.date, has: d.count > 0 }; })),
+    entries: meals.slice().sort(function(a, b){
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (a.meal || '') < (b.meal || '') ? -1 : 1;
+    })
+  };
+}
+
+function buildExInsights(s){
+  var out = [];
+  var add = function(level, text){ out.push({ level: level, text: text }); };
+  if (!s.activeDays){
+    return [{ level: 'info', text: '这段时间还没有运动记录，点下面的「＋ 记录」记第一次。' }];
+  }
+  add('info', s.days + ' 天里运动了 ' + s.activeDays + ' 天，共 ' + fmtHM(s.total) +
+    (s.totalKcal ? '，消耗约 ' + Math.round(s.totalKcal) + ' 千卡' : '') + '。');
+  if (s.last7 >= 150){
+    add('good', '最近 7 天累计 ' + s.last7 + ' 分钟，达到每周 150 分钟的基础推荐量。');
+  } else {
+    add('warn', '最近 7 天只有 ' + s.last7 + ' 分钟，离每周 150 分钟还差 ' + (150 - s.last7) + ' 分钟。');
+  }
+  if (s.prev7 > 0 && s.last7 !== s.prev7){
+    var d = s.last7 - s.prev7;
+    add(d > 0 ? 'good' : 'warn', '最近 7 天比前 7 天' + (d > 0 ? '多 ' : '少 ') + Math.abs(d) + ' 分钟。');
+  }
+  if (s.avgPerActive !== null){
+    add('info', '运动日平均 ' + Math.round(s.avgPerActive) + ' 分钟，最长一天 ' + s.best.minutes +
+      ' 分钟（' + s.best.date.slice(5) + '）。');
+  }
+  if (s.types.length){
+    add('info', '主要项目：' + s.types.slice(0, 3).map(function(t){ return t.type + ' ' + Math.round(t.minutes) + ' 分钟'; }).join('、') + '。');
+  }
+  if (s.streak >= 3){
+    add('good', '已连续运动 ' + s.streak + ' 天，节奏稳。');
+  } else if (s.activeDays >= 3 && s.streak === 1){
+    add('info', '最近一次运动是今天，前几天断了，尽量别让间隔超过 2 天。');
+  }
+  if (s.coverage < 0.5){
+    add('warn', '记录覆盖率 ' + Math.round(s.coverage * 100) + '%（' + s.activeDays + '/' + s.days +
+      ' 天），漏记的天数多了，趋势会看不准。');
+  }
+  return out;
+}
+
+function buildMealInsights(s){
+  var out = [];
+  var add = function(level, text){ out.push({ level: level, text: text }); };
+  if (!s.daysWith){
+    return [{ level: 'info', text: '这段时间还没有饮食记录，点下面的「＋ 记录」记第一餐。' }];
+  }
+  add('info', s.days + ' 天里记录了 ' + s.daysWith + ' 天、共 ' + s.totalMeals + ' 餐。');
+  if (s.avgMeals !== null){
+    if (s.avgMeals < 2.5){
+      add('warn', '记录到餐数平均每天 ' + s.avgMeals.toFixed(1) + ' 餐，可能有漏记；三餐都记才看得出一日总摄入。');
+    } else {
+      add('good', '平均每天记录 ' + s.avgMeals.toFixed(1) + ' 餐，比较完整。');
+    }
+  }
+  if (s.avgKcal !== null){
+    add(s.avgKcal > 2600 ? 'warn' : 'info', '有热量的 ' + s.kcalDays + ' 天里，日均约 ' + Math.round(s.avgKcal) +
+      ' 千卡。');
+  } else {
+    add('info', '还没有填过热量，填了才能算日均摄入。');
+  }
+  if (s.noBreakfast){
+    add('warn', s.noBreakfast + ' 天没有早餐记录，早餐缺失容易影响全天食欲和血糖。');
+  }
+  if (s.streak >= 3){
+    add('good', '已连续记录饮食 ' + s.streak + ' 天。');
+  }
+  if (s.coverage < 0.5){
+    add('warn', '记录覆盖率 ' + Math.round(s.coverage * 100) + '%（' + s.daysWith + '/' + s.days + ' 天）。');
+  }
+  return out;
+}
+
+/* ---------- 体重 ---------- */
+function round1(v){ return Math.round(v * 10) / 10; }
+
+function dayDiff(a, b){
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+}
+
+function weightEntries(items){
+  return itemsOf(items, 'weight')
+    .filter(function(it){ return it && it.date && numOrNull(it.kg) !== null; })
+    .map(function(it){
+      return { id: it.id, date: it.date, kg: numOrNull(it.kg), fat: numOrNull(it.fat), note: it.note || '' };
+    })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+}
+
+function weightStats(items, days, targetKg){
+  var all = weightEntries(items);
+  var end = all.length ? all[all.length - 1].date : todayIso();
+  var keys = dayKeys(end, days);
+  var from = keys[0], to = keys[keys.length - 1];
+  var inWin = all.filter(function(e){ return e.date >= from && e.date <= to; });
+  var byDate = {};
+  all.forEach(function(e){ byDate[e.date] = e; });
+  var filled = keys.map(function(d){
+    var e = byDate[d];
+    return { date: d, kg: e ? e.kg : null, fat: e ? e.fat : null };
+  });
+
+  var first = all.length ? all[0] : null;
+  var latest = all.length ? all[all.length - 1] : null;
+  var prev = all.length > 1 ? all[all.length - 2] : null;
+  var lost = (first && latest) ? round1(first.kg - latest.kg) : null;
+  var lastDelta = (prev && latest) ? round1(latest.kg - prev.kg) : null;
+
+  var tgt = numOrNull(targetKg);
+  var hasTarget = tgt !== null && tgt > 0;
+  var toGo = (latest && hasTarget) ? round1(latest.kg - tgt) : null;
+  var plan = (first && hasTarget) ? round1(first.kg - tgt) : null;
+  var pct = (plan !== null && Math.abs(plan) > 0.3 && lost !== null)
+    ? Math.max(0, Math.min(1, lost / plan)) : null;
+
+  function rateOf(list, spanDays){
+    if (list.length < 2) return null;
+    var a = list[0], b = list[list.length - 1];
+    var dd = dayDiff(a.date, b.date);
+    if (dd <= 0 || dd > spanDays) return null;
+    return (b.kg - a.kg) / dd;                 // kg/天，负数=在减
+  }
+  var span7 = all.filter(function(e){ return e.date >= addDays(end, -6); });
+  var span14 = all.filter(function(e){ return e.date >= addDays(end, -13); });
+  var rate7 = rateOf(span7, 7);
+  var rate14 = rateOf(span14, 14);
+  var rate = rate14 !== null ? rate14 : rate7;
+  var recent = span14.length >= 2 ? span14 : span7;
+  var recentChange = recent.length >= 2 ? round1(recent[recent.length - 1].kg - recent[0].kg) : null;
+
+  var etaDays = null, etaDate = null;
+  if (rate !== null && rate < -0.004 && toGo !== null && toGo > 0){
+    etaDays = Math.ceil(toGo / (-rate) - 1e-6);   // 减一个极小量，避免 21.00000000000004 被进位成 22
+    if (etaDays <= 730) etaDate = addDays(end, etaDays);
+  }
+
+  var vals = inWin.map(function(e){ return e.kg; });
+  var min = vals.length ? Math.min.apply(null, vals) : null;
+  var max = vals.length ? Math.max.apply(null, vals) : null;
+  var measured = filled.filter(function(d){ return d.kg !== null; });
+  var streak = 0;
+  for (var i = filled.length - 1; i >= 0; i--){
+    if (filled[i].kg !== null) streak++; else break;
+  }
+
+  return {
+    days: days, entries: all, inWin: inWin, filled: filled, measured: measured,
+    first: first, latest: latest, prev: prev, lost: lost, lastDelta: lastDelta,
+    hasTarget: hasTarget, targetKg: hasTarget ? tgt : null,
+    toGo: toGo, plan: plan, pct: pct,
+    rate7: rate7, rate14: rate14, rate: rate, recentChange: recentChange,
+    etaDays: etaDays, etaDate: etaDate,
+    min: min, max: max, recorded: measured.length,
+    coverage: days ? measured.length / days : 0, streak: streak
+  };
+}
+
+function buildWeightInsights(s){
+  var out = [];
+  var add = function(level, text){ out.push({ level: level, text: text }); };
+  if (!s.latest){
+    return [{ level: 'info', text: '还没有体重记录。点下面的「＋ 体重」，每天固定时间称一次（推荐早起空腹）。' }];
+  }
+  if (s.first && dayDiff(s.first.date, s.latest.date) > 0){
+    var d = round1(s.latest.kg - s.first.kg);
+    var span = dayDiff(s.first.date, s.latest.date);
+    if (d < 0){
+      add('good', '从 ' + s.first.date.slice(5) + ' 的 ' + s.first.kg.toFixed(1) + ' kg 到现在的 ' +
+        s.latest.kg.toFixed(1) + ' kg，一共减了 ' + Math.abs(d).toFixed(1) + ' kg（' + span + ' 天）。');
+    } else if (d > 0){
+      add('warn', '从 ' + s.first.date.slice(5) + ' 的 ' + s.first.kg.toFixed(1) + ' kg 到现在的 ' +
+        s.latest.kg.toFixed(1) + ' kg，涨了 ' + d.toFixed(1) + ' kg。');
+    } else {
+      add('info', '这段时间体重基本没变（' + s.latest.kg.toFixed(1) + ' kg）。');
+    }
+  } else {
+    add('info', '当前体重 ' + s.latest.kg.toFixed(1) + ' kg。多记几天才能看出趋势。');
+  }
+
+  if (s.hasTarget){
+    if (s.pct !== null){
+      add('good', '目标 ' + s.targetKg.toFixed(1) + ' kg：已完成 ' + Math.round(s.pct * 100) + '%，还差 ' +
+        Math.max(0, s.toGo).toFixed(1) + ' kg。');
+    } else if (s.toGo !== null && s.toGo > 0){
+      add('info', '目标 ' + s.targetKg.toFixed(1) + ' kg：还差 ' + s.toGo.toFixed(1) + ' kg。');
+    } else {
+      add('good', '已经达到目标 ' + s.targetKg.toFixed(1) + ' kg 了。');
+    }
+  } else {
+    add('info', '还没设目标体重。点右下角「目标」设一个，设了才能算进度和减脂完成时间。');
+  }
+
+  if (s.rate !== null){
+    var weekly = round1(s.rate * 7);
+    if (s.rate < -0.004){
+      add('good', '最近的速度是每周 ' + weekly.toFixed(1) + ' kg（' + (Math.round(s.rate * 1000) / 1000) + ' kg/天）。');
+      if (s.etaDate){
+        add('good', '按这个速度，大约 ' + s.etaDate + ' 能到目标：还要 ' + s.etaDays + ' 天，约 ' +
+          round1(s.etaDays / 7) + ' 周。');
+      } else if (s.toGo !== null && s.toGo > 0){
+        add('info', '按这个速度到目标要超过 2 年，建议先把目标拆小（比如先减 2 kg）。');
+      }
+    } else if (s.rate > 0.004){
+      add('warn', '最近体重在往上走（每周 ' + weekly.toFixed(1) + ' kg），照这个趋势到不了目标。');
+    } else {
+      add('info', '最近两周体重基本持平，平台期很正常，先看围度和照片。');
+    }
+  }
+  if (s.recentChange !== null && Math.abs(s.recentChange) < 0.35 && s.recorded >= 5){
+    add('warn', '最近两周只变化 ' + s.recentChange.toFixed(1) + ' kg，像平台期：可以调总热量或加两次力量训练。');
+  }
+  if (s.max !== null && s.min !== null && (s.max - s.min) > 1.5){
+    add('info', '这段时间在 ' + s.min.toFixed(1) + '–' + s.max.toFixed(1) + ' kg 之间波动。日间差多是水分，' +
+      '固定早上空腹称能少一半噪音。');
+  }
+  if (s.streak >= 3){
+    add('good', '已连续记录 ' + s.streak + ' 天。');
+  }
+  if (s.recorded && s.coverage < 0.4){
+    add('warn', '最近 ' + s.days + ' 天只记了 ' + s.recorded + ' 次，趋势线会抖，建议至少隔天记一次。');
+  }
+  return out;
+}
+
+/* 同步合并：服务端按 id 取 updated 较新的一份，墓碑（删除）参与比较 */
+function mergeItemsServer(local, remote){
+  var map = {};
+  (local || []).forEach(function(it){ if (it && it.id) map[it.id] = it; });
+  var added = 0, updated = 0;
+  (remote || []).forEach(function(it){
+    if (!it || !it.id) return;
+    var old = map[it.id];
+    if (!old){ map[it.id] = it; added++; return; }
+    if ((it.updated || '') > (old.updated || '')){ map[it.id] = it; updated++; }
+  });
+  return {
+    list: Object.keys(map).map(function(k){ return map[k]; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }),
+    added: added, updated: updated
+  };
+}
+/* ---------- AI 点评（调用 DeepSeek，本地只做取数与解析） ---------- */
+function scoreClamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+function fmtShortMin(m){ return m < 60 ? m + ' 分钟' : fmtHM(m); }
+
+var AI_DEFAULT = { base: 'https://api.deepseek.com', model: 'deepseek-chat' };
+
+/* 把某一天 + 最近 7 天压缩成给模型看的事实表（纯函数，便于测试） */
+function aiDayFacts(items, date, cfg){
+  cfg = cfg || {};
+  var recs = recordsFromItems(items);
+  var night = recs.filter(function(r){ return r.date === date && r.kind !== 'nap'; })[0] || null;
+  var ex = itemsOf(items, 'ex').filter(function(x){ return x.date === date; });
+  var meals = itemsOf(items, 'meal').filter(function(x){ return x.date === date; });
+  var wt = itemsOf(items, 'weight').filter(function(x){ return x.date === date; })[0] || null;
+
+  var day = { date: date };
+  if (night){
+    day.sleep = {
+      bed: night.bed || null, wake: night.wake || null, minutes: night.total || 0,
+      deep: night.deep || null, light: night.light || null, rem: night.rem || null,
+      awake: night.awake || null
+    };
+  }
+  if (ex.length){
+    day.exercise = ex.map(function(x){
+      return { type: x.type || '运动', min: x.minutes || 0, kcal: x.kcal || null, km: x.km || null };
+    });
+  }
+  if (meals.length){
+    day.meals = meals.map(function(x){
+      return { slot: x.meal || '餐', text: x.text || '', kcal: x.kcal || null };
+    });
+  }
+  if (wt) day.weight = { kg: wt.kg, fat: wt.fat || null };
+
+  var recent = [], i;
+  for (i = 6; i >= 0; i--){
+    var d = addDays(date, -i);
+    var r = recs.filter(function(x){ return x.date === d && x.kind !== 'nap'; })[0];
+    var e = itemsOf(items, 'ex').filter(function(x){ return x.date === d; });
+    var m = itemsOf(items, 'meal').filter(function(x){ return x.date === d; });
+    var w = itemsOf(items, 'weight').filter(function(x){ return x.date === d; })[0];
+    var minutes = 0, kcal = null, exMin = 0;
+    e.forEach(function(x){ exMin += x.minutes || 0; });
+    m.forEach(function(x){ if (x.kcal) kcal = (kcal || 0) + x.kcal; });
+    recent.push({
+      date: d,
+      sleep: r && r.total ? r.total : null,
+      bed: r ? (r.bed || null) : null,
+      exercise: e.length ? exMin : null,
+      meals: m.length,
+      kcal: kcal,
+      kg: w ? w.kg : null
+    });
+  }
+
+  return {
+    day: day,
+    recent: recent,
+    goals: {
+      sleep_minutes: cfg.target || 480,
+      weekly_exercise_minutes: 150,
+      target_kg: cfg.targetKg || null
+    }
+  };
+}
+
+function aiPayloadHash(payload){
+  var txt = JSON.stringify(payload), h = 5381, i;
+  for (i = 0; i < txt.length; i++){ h = ((h * 33) ^ txt.charCodeAt(i)) >>> 0; }
+  return h.toString(16);
+}
+
+function buildAiMessages(payload){
+  var sys = [
+    '你是中文健康管理教练，给用户的一天生活做点评。',
+    '只输出一个 JSON 对象，不要任何解释、不要 Markdown 代码块。',
+    '字段：score（0-100 整数）、grade（只能是 优秀 / 良好 / 一般 / 要留意）、',
+    'summary（2-3 句总体评价）、parts（{"sleep":0-40,"exercise":0-25,"diet":0-25,"weight":0-10}，四项之和约等于 score）、',
+    'highlights（3 条做得好的，每条一句话）、issues（1-3 条要注意的）、tips（2-3 条明天能照做的具体建议）。',
+    '要求：口语化中文；每条都带具体数字；只能依据给到的数据，缺项就直说"这天没记"，不要编造；',
+    '输出必须是合法 JSON，可以被 JSON.parse 解析。'
+  ].join('');
+  var user = '用户数据（JSON）：\n' + JSON.stringify(payload, null, 0) +
+    '\n请按上面的要求，输出这一天的点评 JSON。';
+  return [
+    { role: 'system', content: sys },
+    { role: 'user', content: user }
+  ];
+}
+
+function parseAiReview(raw){
+  if (!raw) return null;
+  var txt = String(raw).trim();
+  txt = txt.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  var i = txt.indexOf('{'), j = txt.lastIndexOf('}');
+  if (i < 0 || j <= i) return null;
+  var obj;
+  try { obj = JSON.parse(txt.slice(i, j + 1)); } catch (e) { return null; }
+  if (!obj || typeof obj !== 'object') return null;
+  var parts = obj.parts || {};
+  function clampNum(v, lo, hi, dflt){
+    var n = Number(v);
+    if (!isFinite(n)) return dflt;
+    return Math.round(Math.max(lo, Math.min(hi, n)));
+  }
+  var out = {
+    score: clampNum(obj.score, 0, 100, null),
+    grade: String(obj.grade || '').slice(0, 6) || null,
+    summary: String(obj.summary || '').slice(0, 600),
+    parts: {
+      sleep: clampNum(parts.sleep, 0, 40, 0),
+      exercise: clampNum(parts.exercise, 0, 25, 0),
+      diet: clampNum(parts.diet, 0, 25, 0),
+      weight: clampNum(parts.weight, 0, 10, 0)
+    },
+    highlights: Array.isArray(obj.highlights) ? obj.highlights.slice(0, 3).map(String) : [],
+    issues: Array.isArray(obj.issues) ? obj.issues.slice(0, 3).map(String) : [],
+    tips: Array.isArray(obj.tips) ? obj.tips.slice(0, 3).map(String) : []
+  };
+  if (out.score === null){
+    var sum = out.parts.sleep + out.parts.exercise + out.parts.diet + out.parts.weight;
+    out.score = sum > 0 ? Math.min(100, sum) : null;
+  }
+  if (!out.grade && out.score !== null){
+    out.grade = out.score >= 85 ? '优秀' : out.score >= 70 ? '良好' : out.score >= 55 ? '一般' : '要留意';
+  }
+  if (out.score === null) return null;
+  return out;
+}
+
+/* 最近 n 天已生成的 AI 评分（没有分析过的天为 null） */
+function aiTrend(reviews, endDate, n){
+  var out = [], i;
+  for (i = n - 1; i >= 0; i--){
+    var d = addDays(endDate, -i);
+    var r = reviews && reviews[d];
+    out.push({ date: d, score: r && typeof r.score === 'number' ? r.score : null });
+  }
+  return out;
+}
+
+/* ---------- 身材照片（纯计算部分） ---------- */
+function photoStats(list, today){
+  var arr = (list || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; });
+  var out = { count: arr.length, first: null, last: null, span: 0, thisMonth: 0,
+    daysSinceLast: null, gapAvg: null, months: 0 };
+  if (!arr.length) return out;
+  out.last = arr[0].date;
+  out.first = arr[arr.length - 1].date;
+  out.span = dayDiff(out.first, out.last);
+  var ym = (today || '').slice(0, 7);
+  arr.forEach(function(p){ if (ym && p.date.slice(0, 7) === ym) out.thisMonth++; });
+  if (today) out.daysSinceLast = dayDiff(out.last, today);
+  out.months = Math.max(1, Math.round(out.span / 30));
+  if (arr.length > 1) out.gapAvg = Math.round((out.span / (arr.length - 1)) * 10) / 10;
+  return out;
+}
+
+function photoDatesDesc(list){
+  return (list || []).map(function(p){ return p.date; })
+    .sort(function(a, b){ return a < b ? 1 : -1; });
+}
+
+function photoComparePair(list){
+  var d = photoDatesDesc(list);
+  if (!d.length) return { left: null, right: null };
+  if (d.length === 1) return { left: d[0], right: d[0] };
+  return { left: d[d.length - 1], right: d[0] };
+}
+/* LOGIC-END */
+
+/* ================= 界面 ================= */
+var state = {
+  items: [], records: [], tombs: {}, target: 480, targetKg: null, days: 30, tab: 'sleep',
+  revDate: null, editDate: null, editId: null, editKind: null, editing: null,
+  ai: null, aiReviews: {}, aiBusy: false,
+  photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true
+};
+var LS_ITEMS = 'sleepstat.items.v2', LS_TOMBS = 'sleepstat.tombs.v2',
+    LS_CFG = 'sleepstat.cfg.v2', LS_REC_V1 = 'sleepstat.records.v1', LS_CFG_V1 = 'sleepstat.cfg.v1',
+    LS_AI = 'sleepstat.ai.v1', LS_AI_REV = 'sleepstat.ai.reviews.v1';
+
+function $(id){ return document.getElementById(id); }
+
+function nowIso(){ return new Date().toISOString(); }
+function uid(kind){
+  return kind + ':' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function sleepItemFromRecord(r){
+  return {
+    id: 'sleep:' + r.date, kind: 'sleep', date: r.date,
+    bed: numOrNull(r.bed), wake: numOrNull(r.wake), total: numOrNull(r.total),
+    deep: numOrNull(r.deep), light: numOrNull(r.light), rem: numOrNull(r.rem),
+    awake: numOrNull(r.awake), awakenings: numOrNull(r.awakenings), score: numOrNull(r.score),
+    note: r.note || '', updated: nowIso()
+  };
+}
+
+function sameSleep(a, b){
+  return a.bed === b.bed && a.wake === b.wake && a.total === b.total &&
+    (a.deep || null) === (b.deep || null) && (a.rem || null) === (b.rem || null) &&
+    (a.note || '') === (b.note || '');
+}
+
+/* 把 state.records（睡眠专用视图）写回统一 items，并给被删掉的日期留墓碑 */
+function recordsToItems(){
+  var oldSleep = {};
+  state.items.forEach(function(it){ if (it.kind === 'sleep') oldSleep[it.id] = it; });
+  var now = nowIso();
+  var seen = {};
+  var next = state.records.map(function(r){
+    var id = 'sleep:' + r.date;
+    seen[id] = 1;
+    var old = oldSleep[id];
+    var it = { id: id, kind: 'sleep', date: r.date, bed: numOrNull(r.bed), wake: numOrNull(r.wake),
+      total: numOrNull(r.total), deep: numOrNull(r.deep), light: numOrNull(r.light), rem: numOrNull(r.rem),
+      awake: numOrNull(r.awake), awakenings: numOrNull(r.awakenings), score: numOrNull(r.score),
+      note: r.note || '' };
+    it.updated = (old && sameSleep(old, it)) ? (old.updated || now) : now;
+    return it;
+  });
+  Object.keys(oldSleep).forEach(function(id){ if (!seen[id]) state.tombs[id] = now; });
+  var keep = state.items.filter(function(it){ return it.kind !== 'sleep'; });
+  state.items = next.concat(keep);
+}
+
+function load(){
+  var migrated = false;
+  try {
+    var raw = JSON.parse(localStorage.getItem(LS_ITEMS) || 'null');
+    if (Array.isArray(raw)) state.items = raw;
+  } catch (e) { state.items = []; }
+  if (!state.items.length){
+    try {
+      var v1 = JSON.parse(localStorage.getItem(LS_REC_V1) || '[]');
+      if (Array.isArray(v1) && v1.length){
+        state.items = v1.map(sleepItemFromRecord);
+        migrated = true;
+      }
+    } catch (e) {}
+  }
+  try {
+    var tombs = JSON.parse(localStorage.getItem(LS_TOMBS) || '{}');
+    if (tombs && typeof tombs === 'object') state.tombs = tombs;
+  } catch (e) { state.tombs = {}; }
+  try {
+    var cfg = JSON.parse(localStorage.getItem(LS_CFG) || 'null');
+    if (!cfg){
+      var old = JSON.parse(localStorage.getItem(LS_CFG_V1) || 'null');
+      cfg = old;
+    }
+    if (cfg && cfg.target) state.target = cfg.target;
+    if (cfg && cfg.targetKg) state.targetKg = cfg.targetKg;
+  } catch (e) {}
+  state.records = recordsFromItems(state.items);
+  if (migrated) persistLocal();
+}
+
+function persistLocal(){
+  try {
+    localStorage.setItem(LS_ITEMS, JSON.stringify(state.items));
+    localStorage.setItem(LS_TOMBS, JSON.stringify(state.tombs));
+    localStorage.setItem(LS_CFG, JSON.stringify({ target: state.target, targetKg: state.targetKg }));
+  } catch (e) {
+    toast('保存失败：浏览器存储不可用，请导出备份');
+  }
+}
+
+function save(){
+  recordsToItems();
+  persistLocal();
+  syncSoon();
+}
+
+/* ---------- 同步（挂在服务器的 /s/<key>/ 下才有） ---------- */
+var SYNC = { base: null, timer: null, mode: 'off', lastOk: 0, busy: false };
+
+function syncBase(){
+  if (SYNC.base !== null) return SYNC.base;
+  var base = '';
+  try {
+    if (location.protocol === 'http:' || location.protocol === 'https:'){
+      var m = location.pathname.match(/^(\/s\/[^/]+)/);
+      if (m) base = m[1];
+    }
+  } catch (e) { base = ''; }
+  SYNC.base = base;
+  return base;
+}
+
+function syncSoon(){
+  if (!syncBase()) return;
+  clearTimeout(SYNC.timer);
+  SYNC.timer = setTimeout(function(){ syncNow(); }, 1200);
+}
+
+function syncNow(quiet){
+  var base = syncBase();
+  if (!base || SYNC.busy) return;
+  SYNC.busy = true;
+  SYNC.mode = 'busy';
+  renderSyncDot();
+  var body = JSON.stringify({
+    target: state.target,
+    items: state.items,
+    tombs: state.tombs,
+    since: SYNC.lastOk || 0
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', base + '/api/sync', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.timeout = 12000;
+  xhr.onload = function(){
+    SYNC.busy = false;
+    if (xhr.status !== 200){
+      SYNC.mode = 'off'; renderSyncDot();
+      if (!quiet) toast('同步失败（服务器返回 ' + xhr.status + '）');
+      return;
+    }
+    var data = null;
+    try { data = JSON.parse(xhr.responseText); } catch (e) {}
+    if (data) applyServer(data);
+    SYNC.mode = 'ok';
+    SYNC.lastOk = Date.now();
+    renderSyncDot();
+  };
+  xhr.onerror = xhr.ontimeout = function(){
+    SYNC.busy = false;
+    SYNC.mode = 'off';
+    renderSyncDot();
+    if (!quiet) toast('连不上服务器，数据已存在本机');
+  };
+  xhr.send(body);
+}
+
+/* 合并服务器返回：谁的 updated 更新听谁的；墓碑比记录新就删记录 */
+function applyServer(data){
+  var map = {}, tombs = {};
+  state.items.forEach(function(it){ map[it.id] = it; });
+  (data.items || []).forEach(function(it){
+    if (!it || !it.id) return;
+    var old = map[it.id];
+    if (!old || (it.updated || '') > (old.updated || '')) map[it.id] = it;
+  });
+  Object.keys(state.tombs).forEach(function(k){ tombs[k] = state.tombs[k]; });
+  Object.keys(data.tombs || {}).forEach(function(k){
+    if (!tombs[k] || data.tombs[k] > tombs[k]) tombs[k] = data.tombs[k];
+  });
+  Object.keys(tombs).forEach(function(id){
+    var it = map[id];
+    if (it && (it.updated || '') <= tombs[id]) delete map[id];
+  });
+  var changed = JSON.stringify(Object.keys(map).sort()) !== JSON.stringify(Object.keys(state.items).sort()) ||
+    JSON.stringify(map) !== JSON.stringify(state.items);
+  state.items = Object.keys(map).map(function(k){ return map[k]; });
+  state.tombs = tombs;
+  if (data.target && data.target !== state.target){ state.target = data.target; changed = true; }
+  state.records = recordsFromItems(state.items);
+  persistLocal();
+  if (changed) render();
+}
+
+function renderSyncDot(){
+  var el = $('syncDot');
+  if (!el) return;
+  var base = syncBase();
+  if (!base){ el.className = 'sdot'; return; }
+  el.className = 'sdot on ' + (SYNC.mode === 'ok' ? 'ok' : (SYNC.mode === 'busy' ? 'busy' : 'off'));
+  el.title = SYNC.mode === 'ok' ? '已同步到服务器' : (SYNC.mode === 'busy' ? '同步中…' : '未连接服务器');
+}
+
+
+var toastTimer = null;
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+function kpi(k, v, s, cls){
+  return '<div class="kpi"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div>' +
+         (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+}
+
+function renderSleep(){
+  var s = computeStats(state.records, state.days, state.target);
+  $('targetTxt').textContent = fmtHM(state.target);
+
+  /* KPI */
+  var avgCls = s.mean === null ? '' : (s.mean >= s.target ? 'ok' : (s.mean >= s.target - 60 ? 'warn' : 'bad'));
+  var empty = !s.n;
+  var hitRate = s.n ? s.hit / s.n : 0;
+  $('kpis').innerHTML = [
+    kpi('平均睡眠', fmtHM(s.mean), s.n + ' 晚有效记录', avgCls),
+    kpi('中位', fmtHM(s.median), s.min !== null ? '最短 ' + fmtHM(s.min) : '暂无', ''),
+    kpi('达标率', empty ? '—' : Math.round(hitRate * 100) + '%', s.hit + '/' + s.n + ' 晚 ≥ ' + fmtHM(s.target),
+      empty ? '' : (hitRate >= 0.6 ? 'ok' : (hitRate > 0 ? 'warn' : 'bad'))),
+    kpi('累计差额', s.diffTotal ? fmtHM(s.diffTotal) : '—',
+      s.diffPerDay !== null ? '日均 ' + fmtHM(s.diffPerDay) : '暂无',
+      empty ? '' : (s.diffTotal >= 0 ? 'ok' : 'bad')),
+    kpi('入睡中位', fmtClock(s.bedMedian), s.bedSD !== null ? '波动 ±' + Math.round(s.bedSD) + 'm' : '无时间数据',
+      empty ? '' : 'accent'),
+    kpi('覆盖率', empty ? '—' : Math.round(s.coverage * 100) + '%', s.recorded + '/' + s.window + ' 天有记录',
+      empty ? '' : (s.coverage >= 0.8 ? 'ok' : 'warn'))
+  ].join('');
+
+  drawDuration(s);
+  drawTimes(s);
+  drawWeekly(s);
+  renderInsights(s);
+  renderList();
+  renderWarn(s);
+}
+
+/* ---------- 板块切换 ---------- */
+function render(){
+  $('tabSleep').hidden = state.tab !== 'sleep';
+  $('tabEx').hidden = state.tab !== 'ex';
+  $('tabMeal').hidden = state.tab !== 'meal';
+  $('tabWeight').hidden = state.tab !== 'weight';
+  $('tabReview').hidden = state.tab !== 'review';
+  $('tabPhoto').hidden = state.tab !== 'photo';
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){
+    b.classList.toggle('on', b.dataset.tab === state.tab);
+  });
+  $('btnAdd').textContent = '＋ ' + ({ sleep: '睡眠', ex: '运动', meal: '饮食', weight: '体重',
+    photo: '拍照', review: '记录' })[state.tab];
+  if (state.tab === 'sleep') renderSleep();
+  else if (state.tab === 'ex') renderEx();
+  else if (state.tab === 'meal') renderMeal();
+  else if (state.tab === 'weight') renderWeight();
+  else if (state.tab === 'photo') renderPhotos();
+  else renderReview();
+  renderSyncDot();
+}
+
+function setTab(tab){
+  state.tab = tab;
+  try { localStorage.setItem('sleepstat.tab', tab); } catch (e) {}
+  render();
+}
+
+/* ---------- 运动 ---------- */
+function renderEx(){
+  var s = exStats(state.items, state.days, 150);
+  var empty = !s.activeDays;
+  $('kpisEx').innerHTML = [
+    kpi('运动总时长', empty ? '—' : fmtHM(s.total), s.activeDays + ' 天有记录', empty ? '' : 'accent'),
+    kpi('日均', empty ? '—' : Math.round(s.avgPerDay) + ' 分钟', '按 ' + s.days + ' 天摊', ''),
+    kpi('最近 7 天', s.last7 ? s.last7 + ' 分钟' : '—',
+      s.last7 >= 150 ? '达标（≥150）' : '目标 150 分钟/周',
+      s.last7 >= 150 ? 'ok' : (s.last7 > 0 ? 'warn' : '')),
+    kpi('消耗', s.totalKcal ? Math.round(s.totalKcal) + ' 千卡' : '—', s.best ? '最长 ' + s.best.minutes + ' 分钟' : '暂无',
+      ''),
+    kpi('运动天数', empty ? '—' : s.activeDays + ' 天', '覆盖率 ' + Math.round(s.coverage * 100) + '%',
+      empty ? '' : (s.coverage >= 0.5 ? 'ok' : 'warn')),
+    kpi('连续运动', s.streak ? s.streak + ' 天' : '—', s.types.length ? '常做：' + s.types[0].type : '暂无记录', '')
+  ].join('');
+  drawEx(s);
+  renderIns($('insEx'), buildExInsights(s));
+  renderExList(s);
+}
+
+function drawEx(s){
+  var W = 360, H = 172, padL = 32, padR = 8, padT = 12, padB = 20;
+  var days = s.filled;
+  if (!s.activeDays){
+    $('chartEx').innerHTML = '<text x="180" y="86" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var maxV = 60;
+  days.forEach(function(d){ if (d.minutes > maxV) maxV = d.minutes; });
+  maxV = maxV * 1.15;
+  var bw = (W - padL - padR) / days.length;
+  var y = function(v){ return padT + (1 - v / maxV) * (H - padT - padB); };
+  var parts = [];
+  parts.push('<defs><linearGradient id="gex" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#4dd6a0" stop-opacity=".95"/>' +
+    '<stop offset="100%" stop-color="#2b8f6b" stop-opacity=".8"/></linearGradient></defs>');
+  [0, 30, 60, 90, 120].forEach(function(v){
+    if (v > maxV) return;
+    parts.push('<line x1="' + padL + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(v).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(v) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + v + '</text>');
+  });
+  days.forEach(function(d, i){
+    if (!d.minutes) return;
+    var h = (H - padT - padB) * (d.minutes / maxV);
+    var x = padL + i * bw + bw * 0.18;
+    var w = Math.max(1.5, bw * 0.64);
+    parts.push('<rect x="' + x.toFixed(1) + '" y="' + y(d.minutes).toFixed(1) + '" width="' + w.toFixed(1) +
+      '" height="' + h.toFixed(1) + '" rx="1.5" fill="url(#gex)"><title>' + d.date + ' ' + d.minutes + ' 分钟' +
+      (d.kcal ? '，' + Math.round(d.kcal) + ' 千卡' : '') + '</title></rect>');
+  });
+  parts.push('<text x="' + padL + '" y="' + (H - 5) + '" class="axis">' + days[0].date.slice(5) + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 5) + '" class="axis" text-anchor="end">' + days[days.length - 1].date.slice(5) + '</text>');
+  parts.push('<text x="' + (padL + 2) + '" y="' + (padT + 8) + '" class="axis">分钟 / 天</text>');
+  $('chartEx').innerHTML = parts.join('');
+}
+
+function renderExList(s){
+  var mine = s.entries.slice(0, 60);
+  if (!mine.length){
+    $('listEx').innerHTML = '<div class="muted">还没有运动记录。点下面的「＋ 记录」，记一次走路也算。</div>';
+    return;
+  }
+  $('listEx').innerHTML = mine.map(function(it){
+    var extra = [];
+    if (it.kcal) extra.push(Math.round(it.kcal) + ' 千卡');
+    if (it.km) extra.push(it.km + ' km');
+    if (it.note) extra.push(it.note);
+    return '<div class="row" data-id="' + it.id + '">' +
+      '<div class="d">' + it.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(it.date)) + '</div>' +
+      '<div class="t"><span class="pill a">' + esc(it.type || '运动') + '</span>' +
+      (extra.length ? '<span class="x">' + esc(extra.join(' · ')) + '</span>' : '') + '</div>' +
+      '<div class="m">' + (it.minutes || 0) + '′</div></div>';
+  }).join('');
+}
+
+
+/* ---------- 体重 ---------- */
+function renderWeight(){
+  var s = weightStats(state.items, state.days, state.targetKg);
+  var empty = !s.latest;
+  var lastD = s.lastDelta;
+  var lastTxt = lastD === null ? '第一次记录'
+    : (lastD === 0 ? '和上次一样' : (lastD < 0 ? '比上次轻 ' + Math.abs(lastD).toFixed(1) + ' kg'
+                                                  : '比上次重 ' + lastD.toFixed(1) + ' kg'));
+  var etaTxt = '—';
+  var etaSub = s.hasTarget ? '设了目标才算' : '点「目标」设体重目标';
+  if (s.etaDate){
+    etaTxt = s.etaDate.slice(5);
+    etaSub = s.etaDate.slice(0, 4) + ' 年 · 还要 ' + s.etaDays + ' 天（约 ' + round1(s.etaDays / 7) + ' 周）';
+  } else if (s.latest && s.hasTarget && s.toGo !== null && s.toGo <= 0){
+    etaTxt = '已达成';
+    etaSub = '目标 ' + s.targetKg.toFixed(1) + ' kg';
+  }
+  $('kpisW').innerHTML = [
+    kpi('当前体重', empty ? '—' : s.latest.kg.toFixed(1) + ' kg', empty ? '还没有记录' : lastTxt, 'accent'),
+    kpi('距目标', !s.hasTarget ? '—' : (s.toGo > 0 ? s.toGo.toFixed(1) + ' kg' : '已达成'),
+      s.hasTarget ? '目标 ' + s.targetKg.toFixed(1) + ' kg' : '点「目标」设置',
+      !s.hasTarget ? '' : (s.toGo > 0 ? 'warn' : 'ok')),
+    kpi('已减', s.lost === null ? '—' : (s.lost >= 0 ? s.lost.toFixed(1) + ' kg' : '增 ' + Math.abs(s.lost).toFixed(1) + ' kg'),
+      s.first ? '起始 ' + s.first.kg.toFixed(1) + ' kg（' + s.first.date.slice(5) + '）' : '暂无',
+      s.lost === null ? '' : (s.lost > 0 ? 'ok' : (s.lost < 0 ? 'bad' : ''))),
+    kpi('进度', s.pct === null ? '—' : Math.round(s.pct * 100) + '%',
+      s.plan === null ? '需先设目标' : '总目标 ' + s.plan.toFixed(1) + ' kg',
+      s.pct === null ? '' : (s.pct >= 0.6 ? 'ok' : 'warn')),
+    kpi('近期速度', s.rate === null ? '—' : (s.rate * 7 >= 0 ? '+' : '') + (s.rate * 7).toFixed(1) + ' kg/周',
+      s.rate7 === null ? '' : '近 7 天 ' + (s.rate7 * 7 >= 0 ? '+' : '') + (s.rate7 * 7).toFixed(1) + ' kg',
+      s.rate === null ? '' : (s.rate < -0.004 ? 'ok' : (s.rate > 0.004 ? 'bad' : ''))),
+    kpi('预计达成', etaTxt, etaSub, s.etaDate ? 'ok' : '')
+  ].join('');
+  drawWeight(s);
+  renderIns($('insW'), buildWeightInsights(s));
+  renderWeightList(s);
+}
+
+function drawWeight(s){
+  var W = 360, H = 190, padL = 34, padR = 10, padT = 16, padB = 22;
+  var els = s.inWin;
+  if (!els.length){
+    $('chartW').innerHTML = '<text x="180" y="95" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var vals = els.map(function(e){ return e.kg; });
+  var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if (s.hasTarget){ lo = Math.min(lo, s.targetKg); hi = Math.max(hi, s.targetKg); }
+  var span = Math.max(0.8, hi - lo);
+  lo = lo - span * 0.18; hi = hi + span * 0.18;
+  var x = function(i){ return els.length === 1 ? padL + (W - padL - padR) / 2
+                                              : padL + i * (W - padL - padR) / (els.length - 1); };
+  var y = function(v){ return padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB); };
+  var parts = ['<defs><linearGradient id="gw" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#b18cff" stop-opacity=".42"/>' +
+    '<stop offset="100%" stop-color="#b18cff" stop-opacity="0"/></linearGradient></defs>'];
+
+  for (var t = 0; t <= 3; t++){
+    var gv = lo + (hi - lo) * t / 3;
+    parts.push('<line x1="' + padL + '" y1="' + y(gv).toFixed(1) + '" x2="' + (W - padR) + '" y2="' +
+      y(gv).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(gv) + 3).toFixed(1) + '" class="axis" text-anchor="end">' +
+      gv.toFixed(1) + '</text>');
+  }
+  if (s.hasTarget){
+    var ty = y(s.targetKg);
+    parts.push('<line x1="' + padL + '" y1="' + ty.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + ty.toFixed(1) +
+      '" stroke="#4dd6a0" stroke-width="1.2" stroke-dasharray="4 3" opacity=".85"/>');
+    parts.push('<text x="' + (padL + 2) + '" y="' + (ty - 4).toFixed(1) + '" class="axis">目标 ' +
+      s.targetKg.toFixed(1) + ' kg</text>');
+  }
+  var pts = els.map(function(e, i){ return x(i).toFixed(1) + ',' + y(e.kg).toFixed(1); });
+  if (pts.length > 1){
+    parts.push('<path d="M' + pts.join(' L') + '" fill="none" stroke="#b18cff" stroke-width="1.8" ' +
+      'stroke-linejoin="round" stroke-linecap="round"/>');
+    parts.push('<path d="M' + x(0).toFixed(1) + ',' + (H - padB) + ' L' + pts.join(' L') + ' L' +
+      x(els.length - 1).toFixed(1) + ',' + (H - padB) + ' Z" fill="url(#gw)" stroke="none"/>');
+  }
+  els.forEach(function(e, i){
+    parts.push('<circle cx="' + x(i).toFixed(1) + '" cy="' + y(e.kg).toFixed(1) + '" r="2.6" fill="#b18cff">' +
+      '<title>' + e.date + '：' + e.kg.toFixed(1) + ' kg' + (e.fat ? '，体脂 ' + e.fat + '%' : '') + '</title></circle>');
+  });
+  parts.push('<text x="' + padL + '" y="' + (H - 6) + '" class="axis">' + els[0].date.slice(5) + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 6) + '" class="axis" text-anchor="end">' +
+    els[els.length - 1].date.slice(5) + '</text>');
+  $('chartW').innerHTML = parts.join('');
+}
+
+function renderWeightList(s){
+  var asc = s.entries;
+  if (!asc.length){
+    $('listW').innerHTML = '<div class="muted">还没有体重记录。点下面的「＋ 体重」，早上空腹称一次最准。</div>';
+    return;
+  }
+  var rows = asc.slice().reverse().slice(0, 120);
+  $('listW').innerHTML = rows.map(function(e){
+    var i = asc.indexOf(e);
+    var prev = i > 0 ? asc[i - 1] : null;
+    var d = prev ? round1(e.kg - prev.kg) : null;
+    var cls = d === null ? '' : (d < 0 ? 'ok' : (d > 0 ? 'bad' : ''));
+    var extra = [];
+    if (e.fat) extra.push('体脂 ' + e.fat + '%');
+    if (e.note) extra.push(e.note);
+    return '<div class="row" data-id="' + e.id + '">' +
+      '<div class="d">' + e.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(e.date)) + '</div>' +
+      '<div class="t">' + (extra.length ? '<span class="x">' + esc(extra.join(' · ')) + '</span>' : '') + '</div>' +
+      '<div class="m ' + cls + '">' + e.kg.toFixed(1) + '</div></div>';
+  }).join('');
+}
+
+/* ---------- 饮食 ---------- */
+function renderMeal(){
+  var s = mealStats(state.items, state.days, 2000);
+  var empty = !s.daysWith;
+  $('kpisMeal').innerHTML = [
+    kpi('记录天数', empty ? '—' : s.daysWith + ' 天', '覆盖率 ' + Math.round(s.coverage * 100) + '%',
+      empty ? '' : (s.coverage >= 0.6 ? 'ok' : 'warn')),
+    kpi('总餐数', empty ? '—' : s.totalMeals + ' 餐', s.avgMeals !== null ? '日均 ' + s.avgMeals.toFixed(1) + ' 餐' : '暂无', ''),
+    kpi('日均热量', s.avgKcal !== null ? Math.round(s.avgKcal) + ' 千卡' : '—',
+      s.kcalDays ? s.kcalDays + ' 天填了热量' : '填了才算', s.avgKcal !== null ? 'accent' : ''),
+    kpi('热量合计', s.totalKcal ? Math.round(s.totalKcal) + ' 千卡' : '—', '记录时段内', ''),
+    kpi('缺早餐', empty ? '—' : s.noBreakfast + ' 天', empty ? '—' : s.daysWith - s.noBreakfast + ' 天有早餐',
+      empty ? '' : (s.noBreakfast > s.daysWith / 2 ? 'warn' : 'ok')),
+    kpi('连续记录', s.streak ? s.streak + ' 天' : '—', '餐数与热量都在这', '')
+  ].join('');
+  drawMeal(s);
+  renderIns($('insMeal'), buildMealInsights(s));
+  renderMealList(s);
+}
+
+function drawMeal(s){
+  var W = 360, H = 172, padL = 32, padR = 8, padT = 12, padB = 20;
+  var days = s.filled;
+  if (!s.daysWith){
+    $('chartMeal').innerHTML = '<text x="180" y="86" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var useKcal = s.kcalDays >= Math.max(2, s.daysWith / 3);
+  var vals = days.map(function(d){ return useKcal ? d.kcal : d.count; });
+  var maxV = 1;
+  vals.forEach(function(v){ if (v > maxV) maxV = v; });
+  maxV = maxV * 1.2;
+  var bw = (W - padL - padR) / days.length;
+  var y = function(v){ return padT + (1 - v / maxV) * (H - padT - padB); };
+  var parts = [];
+  parts.push('<defs><linearGradient id="gmeal" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#ffb454" stop-opacity=".95"/>' +
+    '<stop offset="100%" stop-color="#b97a2b" stop-opacity=".85"/></linearGradient></defs>');
+  var ticks = useKcal ? [0, 500, 1000, 1500, 2000] : [0, 1, 2, 3, 4];
+  ticks.forEach(function(v){
+    if (v > maxV) return;
+    parts.push('<line x1="' + padL + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(v).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(v) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + v + '</text>');
+  });
+  days.forEach(function(d, i){
+    var v = useKcal ? d.kcal : d.count;
+    if (!v) return;
+    var h = (H - padT - padB) * (v / maxV);
+    var x = padL + i * bw + bw * 0.18;
+    var w = Math.max(1.5, bw * 0.64);
+    parts.push('<rect x="' + x.toFixed(1) + '" y="' + y(v).toFixed(1) + '" width="' + w.toFixed(1) +
+      '" height="' + h.toFixed(1) + '" rx="1.5" fill="url(#gmeal)"><title>' + d.date + '：' +
+      (useKcal ? Math.round(d.kcal) + ' 千卡' : d.count + ' 餐') + '</title></rect>');
+  });
+  parts.push('<text x="' + (padL + 2) + '" y="' + (padT + 8) + '" class="axis">' + (useKcal ? '千卡 / 天' : '餐数 / 天') + '</text>');
+  parts.push('<text x="' + padL + '" y="' + (H - 5) + '" class="axis">' + days[0].date.slice(5) + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 5) + '" class="axis" text-anchor="end">' + days[days.length - 1].date.slice(5) + '</text>');
+  $('chartMeal').innerHTML = parts.join('');
+}
+
+function renderMealList(s){
+  var mine = s.entries.slice(0, 60);
+  if (!mine.length){
+    $('listMeal').innerHTML = '<div class="muted">还没有饮食记录。点下面的「＋ 记录」，写一句吃了什么就行。</div>';
+    return;
+  }
+  $('listMeal').innerHTML = mine.map(function(it){
+    var sub = [];
+    if (it.kcal) sub.push(Math.round(it.kcal) + ' 千卡');
+    if (it.note) sub.push(it.note);
+    return '<div class="row" data-id="' + it.id + '">' +
+      '<div class="d">' + it.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(it.date)) + '</div>' +
+      '<div class="t"><span class="pill b">' + esc(it.meal || '餐') + '</span>' + esc(it.text || '') +
+      (sub.length ? '<span class="x"> · ' + esc(sub.join(' · ')) + '</span>' : '') + '</div></div>';
+  }).join('');
+}
+
+function renderIns(el, list){
+  var icon = { good: '✓', warn: '!', bad: '✗', info: '·' };
+  if (!el) return;
+  el.innerHTML = (list || []).map(function(i){
+    return '<li class="' + i.level + '"><span class="tag">' + icon[i.level] + '</span><span>' + i.text + '</span></li>';
+  }).join('') || '<li class="info"><span class="tag">·</span><span>暂无结论。</span></li>';
+}
+
+function renderWarn(s){
+  var w = $('warnbar');
+  var last = localStorage.getItem('sleepstat.lastBackup');
+  var many = state.records.length >= 14;
+  var stale = !last || (Date.now() - Number(last)) > 7 * 86400000;
+  if (many && stale){
+    w.innerHTML = '<div class="warnbar">已经有 ' + state.records.length + ' 天数据了，建议在「数据」里点一次「备份 JSON」—— 浏览器清缓存会连数据一起清掉。</div>';
+  } else {
+    w.innerHTML = '';
+  }
+}
+
+function renderInsights(s){
+  var list = buildInsights(s);
+  var icon = { good: '✓', warn: '!', bad: '✗', info: '·' };
+  $('insights').innerHTML = list.map(function(i){
+    return '<li class="' + i.level + '"><span class="tag">' + icon[i.level] + '</span><span>' + i.text + '</span></li>';
+  }).join('');
+}
+
+function renderList(){
+  var mine = state.records.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 90);
+  if (!mine.length){
+    $('list').innerHTML = '<div class="muted">还没有记录。点下面的「＋ 录入」，或在「数据」里导入导出文件。</div>';
+    return;
+  }
+  $('list').innerHTML = mine.map(function(r){
+    var times = (r.bed !== null && r.bed !== undefined && r.wake !== null && r.wake !== undefined)
+      ? fmtClock(r.bed) + ' → ' + fmtClock(r.wake) : '—';
+    var cls = r.total < 390 ? ' s' : '';
+    return '<div class="row" data-date="' + r.date + '">' +
+      '<div class="d">' + r.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(r.date)) + '</div>' +
+      '<div class="t">' + times + '</div>' +
+      '<div class="m' + cls + '">' + fmtHM(r.total) + '</div></div>';
+  }).join('');
+}
+
+/* ---------- 图表 ---------- */
+function esc(v){ return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+function drawDuration(s){
+  var W = 360, H = 172, padL = 30, padR = 8, padT = 12, padB = 20;
+  var days = s.filled;
+  if (!days.length){
+    $('chartDur').innerHTML = '<text x="180" y="86" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var maxV = 600;
+  days.forEach(function(d){ if (d.rec && d.rec.total > maxV) maxV = d.rec.total; });
+  maxV = maxV * 1.08;
+  var bw = (W - padL - padR) / days.length;
+  var y = function(v){ return padT + (1 - v / maxV) * (H - padT - padB); };
+  var parts = [];
+  parts.push('<defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#5fb0ff" stop-opacity=".95"/>' +
+    '<stop offset="100%" stop-color="#2a6bb5" stop-opacity=".85"/></linearGradient></defs>');
+  // 网格
+  [0, 2, 4, 6, 8, 10].forEach(function(h){
+    var v = h * 60;
+    if (v > maxV) return;
+    parts.push('<line x1="' + padL + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(v).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(v) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + h + 'h</text>');
+  });
+  // 柱
+  days.forEach(function(d, i){
+    if (!d.rec) return;
+    var v = d.rec.total;
+    var h = (H - padT - padB) * (v / maxV);
+    var x = padL + i * bw + bw * 0.18;
+    var w = Math.max(1.5, bw * 0.64);
+    parts.push('<rect x="' + x.toFixed(1) + '" y="' + (y(v)).toFixed(1) + '" width="' + w.toFixed(1) +
+      '" height="' + h.toFixed(1) + '" rx="1.5" class="' + (v < 390 ? 'bar short' : 'bar') + '"><title>' +
+      d.date + ' ' + fmtHM(v) + '</title></rect>');
+  });
+  // 目标线
+  if (s.target <= maxV){
+    parts.push('<line x1="' + padL + '" y1="' + y(s.target).toFixed(1) + '" x2="' + (W - padR) + '" y2="' +
+      y(s.target).toFixed(1) + '" class="target"/>');
+    parts.push('<text x="' + (padL + 2) + '" y="' + (y(s.target) - 3).toFixed(1) + '" class="axis">目标 ' + Math.round(s.target / 60 * 10) / 10 + 'h</text>');
+  }
+  // 折线
+  var pts = [];
+  days.forEach(function(d, i){
+    if (!d.rec) return;
+    pts.push((padL + i * bw + bw / 2).toFixed(1) + ',' + y(d.rec.total).toFixed(1));
+  });
+  if (pts.length > 1){
+    parts.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="#7ee0c0" stroke-width="1.2" stroke-opacity=".75"/>');
+  }
+  // 日期轴
+  var first = days[0].date.slice(5), lastD = days[days.length - 1].date.slice(5);
+  parts.push('<text x="' + padL + '" y="' + (H - 5) + '" class="axis">' + first + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 5) + '" class="axis" text-anchor="end">' + lastD + '</text>');
+  $('chartDur').innerHTML = parts.join('');
+}
+
+function drawTimes(s){
+  var W = 360, H = 190, padL = 34, padR = 10, padT = 10, padB = 20;
+  var days = s.filled.filter(function(d){ return d.rec && d.rec.bed !== null && d.rec.bed !== undefined; });
+  if (days.length < 1){
+    $('chartTimes').innerHTML = '<text x="180" y="95" class="axis" text-anchor="middle">暂无时间数据</text>';
+    return;
+  }
+  var T0 = 1200, T1 = 2160;                       // 20:00 → 次日 12:00
+  var bw = (W - padL - padR) / Math.max(1, s.filled.length);
+  var y = function(t){ return padT + (1 - (t - T0) / (T1 - T0)) * (H - padT - padB); };
+  var parts = [];
+  [[1200, '20:00'], [1320, '22:00'], [1440, '00:00'], [1560, '02:00'], [1680, '04:00'], [1800, '06:00'], [1920, '08:00'], [2040, '10:00']]
+    .forEach(function(tk){
+      parts.push('<line x1="' + padL + '" y1="' + y(tk[0]).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(tk[0]).toFixed(1) + '" class="gline"/>');
+      parts.push('<text x="' + (padL - 4) + '" y="' + (y(tk[0]) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + tk[1] + '</text>');
+    });
+  var idx = 0;
+  var lines = [], bedDots = [], wakeDots = [];
+  s.filled.forEach(function(d){
+    if (!d.rec) { idx++; return; }
+    var cx = padL + idx * bw + bw / 2;
+    var bedA = anchorBed(d.rec.bed);
+    var wakeA = d.rec.wake;
+    if (bedA !== null){
+      var wakeAnchored = (wakeA === null || wakeA === undefined) ? null : (wakeA < 720 ? wakeA + 1440 : wakeA);
+      if (wakeAnchored !== null && wakeAnchored < bedA) wakeAnchored += 1440;
+      if (wakeAnchored !== null && wakeAnchored <= T1){
+        lines.push('<line x1="' + cx.toFixed(1) + '" y1="' + y(bedA).toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' +
+          y(wakeAnchored).toFixed(1) + '"/>');
+        wakeDots.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y(wakeAnchored).toFixed(1) + '" r="2.4" fill="#ffb454"><title>' +
+          d.date + ' 起床 ' + fmtClock(wakeA) + '</title></circle>');
+      } else if (wakeAnchored !== null){
+        wakeDots.push('<circle cx="' + cx.toFixed(1) + '" cy="' + (H - padB - 2) + '" r="2" fill="#ffb454" opacity=".5"/>');
+      }
+      if (bedA <= T1){
+        bedDots.push('<circle cx="' + cx.toFixed(1) + '" cy="' + y(bedA).toFixed(1) + '" r="2.4" fill="#4da3ff"><title>' +
+          d.date + ' 入睡 ' + fmtClock(d.rec.bed) + '</title></circle>');
+      }
+    }
+    idx++;
+  });
+  parts.push('<g class="dots">' + lines.join('') + '</g>');
+  parts.push(bedDots.join('') + wakeDots.join(''));
+  parts.push('<text x="' + padL + '" y="' + (H - 5) + '" class="axis">' + s.filled[0].date.slice(5) + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 5) + '" class="axis" text-anchor="end">' + s.filled[s.filled.length - 1].date.slice(5) + '</text>');
+  // 图例
+  parts.push('<circle cx="' + (W - 78) + '" cy="' + (padT + 4) + '" r="2.6" fill="#4da3ff"/>');
+  parts.push('<text x="' + (W - 72) + '" y="' + (padT + 7) + '" class="axis">入睡</text>');
+  parts.push('<circle cx="' + (W - 42) + '" cy="' + (padT + 4) + '" r="2.6" fill="#ffb454"/>');
+  parts.push('<text x="' + (W - 36) + '" y="' + (padT + 7) + '" class="axis">起床</text>');
+  $('chartTimes').innerHTML = parts.join('');
+}
+
+function drawWeekly(s){
+  var rows = weeklyRows(state.records, 8);
+  var W = 360, H = 160, padL = 30, padR = 8, padT = 12, padB = 22;
+  if (!rows.length){
+    $('chartWeek').innerHTML = '<text x="180" y="80" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var maxV = Math.max(s.target * 1.15, 600);
+  rows.forEach(function(r){ if (r.avg > maxV) maxV = r.avg * 1.08; });
+  var bw = (W - padL - padR) / rows.length;
+  var y = function(v){ return padT + (1 - v / maxV) * (H - padT - padB); };
+  var parts = [];
+  [0, 2, 4, 6, 8, 10].forEach(function(h){
+    var v = h * 60;
+    if (v > maxV) return;
+    parts.push('<line x1="' + padL + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(v).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(v) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + h + 'h</text>');
+  });
+  rows.forEach(function(r, i){
+    var h = (H - padT - padB) * (r.avg / maxV);
+    var x = padL + i * bw + bw * 0.2;
+    var w = Math.max(2, bw * 0.6);
+    parts.push('<rect x="' + x.toFixed(1) + '" y="' + y(r.avg).toFixed(1) + '" width="' + w.toFixed(1) +
+      '" height="' + h.toFixed(1) + '" rx="1.5" class="weekend-bar"><title>' + r.start + ' 起 ' + r.n + ' 天，平均 ' +
+      fmtHM(r.avg) + '</title></rect>');
+    parts.push('<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - 8) + '" class="axis" text-anchor="middle">' +
+      r.start.slice(5) + '</text>');
+  });
+  parts.push('<line x1="' + padL + '" y1="' + y(s.target).toFixed(1) + '" x2="' + (W - padR) + '" y2="' +
+    y(s.target).toFixed(1) + '" class="target"/>');
+  $('chartWeek').innerHTML = parts.join('');
+}
+
+/* ---------- 录入 / 编辑 ---------- */
+function openAdd(date){
+  state.editDate = date || null;
+  var r = null;
+  if (date) r = state.records.filter(function(x){ return x.date === date; })[0] || null;
+  $('addTitle').textContent = r ? '编辑 ' + r.date : '录入一天';
+  $('fDate').value = r ? r.date : (date || todayIso());
+  $('fTotal').value = r && r.total ? String(r.total) : '';
+  $('fBed').value = r && r.bed !== null && r.bed !== undefined ? fmtClock(r.bed) : '';
+  $('fWake').value = r && r.wake !== null && r.wake !== undefined ? fmtClock(r.wake) : '';
+  $('fDeep').value = r && r.deep ? String(r.deep) : '';
+  $('fRem').value = r && r.rem ? String(r.rem) : '';
+  $('fNote').value = r && r.note ? r.note : '';
+  $('dlgAdd').showModal();
+}
+
+function saveAdd(){
+  var date = $('fDate').value;
+  if (!date){ toast('先选日期'); return; }
+  var bed = $('fBed').value ? parseTime($('fBed').value) : null;
+  var wake = $('fWake').value ? parseTime($('fWake').value) : null;
+  var total = parseDuration($('fTotal').value, 'auto');
+  if (!total && bed !== null && wake !== null){
+    var d = (wake - bed + 1440) % 1440;
+    total = d === 0 ? 1440 : d;
+  }
+  if (!total){ toast('填写睡眠时长，或同时填入睡和起床时间'); return; }
+  var rec = {
+    date: date, bed: bed, wake: wake, total: Math.round(total),
+    deep: parseDuration($('fDeep').value, 'auto'),
+    light: null,
+    rem: parseDuration($('fRem').value, 'auto'),
+    awake: null, awakenings: null, score: null,
+    note: $('fNote').value.trim()
+  };
+  if (state.editDate){
+    state.records = state.records.filter(function(x){ return x.date !== state.editDate; });
+  }
+  var res = mergeRecords(state.records, [rec]);
+  state.records = res.list;
+  save();
+  render();
+  $('dlgAdd').close();
+  toast(rec.date + ' 已保存：' + fmtHM(rec.total));
+}
+
+/* ---------- 运动 / 饮食 的录入 ---------- */
+function findItem(id){
+  return state.items.filter(function(it){ return it.id === id; })[0] || null;
+}
+
+function openEx(id){
+  state.editId = id || null;
+  var it = id ? findItem(id) : null;
+  $('exTitle').textContent = it ? '编辑运动' : '记录运动';
+  $('eDate').value = it ? it.date : todayIso();
+  $('eType').value = it && it.type ? it.type : '走路';
+  $('eMin').value = it && it.minutes ? String(it.minutes) : '';
+  $('eKcal').value = it && it.kcal ? String(Math.round(it.kcal)) : '';
+  $('eKm').value = it && it.km ? String(it.km) : '';
+  $('eNote').value = it && it.note ? it.note : '';
+  $('btnDelEx').style.display = it ? 'block' : 'none';
+  $('dlgEx').showModal();
+}
+
+function saveEx(){
+  var date = $('eDate').value;
+  if (!date){ toast('先选日期'); return; }
+  var minutes = parseDuration($('eMin').value, 'auto');
+  if (!minutes || minutes < 1 || minutes > 1440){ toast('填运动时长（分钟），1 到 1440 之间'); return; }
+  var old = state.editId ? findItem(state.editId) : null;
+  var it = {
+    id: old ? old.id : uid('ex'), kind: 'ex', date: date,
+    type: $('eType').value || '其他',
+    minutes: Math.round(minutes),
+    kcal: numOrNull($('eKcal').value),
+    km: numOrNull($('eKm').value),
+    note: $('eNote').value.trim(),
+    updated: nowIso()
+  };
+  state.items = state.items.filter(function(x){ return x.id !== it.id; });
+  state.items.push(it);
+  save();
+  render();
+  $('dlgEx').close();
+  toast('已记录：' + it.type + ' ' + it.minutes + ' 分钟');
+}
+
+function deleteEx(){
+  if (!state.editId) return;
+  if (!confirm('删除这条运动记录？')) return;
+  var id = state.editId;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.tombs[id] = nowIso();
+  save();
+  render();
+  $('dlgEx').close();
+  toast('已删除');
+}
+
+function openMeal(id){
+  state.editId = id || null;
+  var it = id ? findItem(id) : null;
+  $('mealTitle').textContent = it ? '编辑饮食' : '记录饮食';
+  $('mDate').value = it ? it.date : todayIso();
+  $('mMeal').value = it && it.meal ? it.meal : defaultMeal();
+  $('mText').value = it && it.text ? it.text : '';
+  $('mKcal').value = it && it.kcal ? String(Math.round(it.kcal)) : '';
+  $('mNote').value = it && it.note ? it.note : '';
+  $('btnDelMeal').style.display = it ? 'block' : 'none';
+  $('dlgMeal').showModal();
+}
+
+function defaultMeal(){
+  var h = new Date().getHours();
+  if (h < 10) return '早餐';
+  if (h < 15) return '午餐';
+  if (h < 21) return '晚餐';
+  return '加餐';
+}
+
+function saveMeal(){
+  var date = $('mDate').value;
+  if (!date){ toast('先选日期'); return; }
+  var text = $('mText').value.trim();
+  if (!text){ toast('写一句吃了什么，比如「米饭 + 青菜 + 鸡胸」'); return; }
+  var old = state.editId ? findItem(state.editId) : null;
+  var it = {
+    id: old ? old.id : uid('meal'), kind: 'meal', date: date,
+    meal: $('mMeal').value || '加餐',
+    text: text,
+    kcal: numOrNull($('mKcal').value),
+    note: $('mNote').value.trim(),
+    updated: nowIso()
+  };
+  state.items = state.items.filter(function(x){ return x.id !== it.id; });
+  state.items.push(it);
+  save();
+  render();
+  $('dlgMeal').close();
+  toast('已记录：' + it.meal + ' ' + it.text.slice(0, 12));
+}
+
+function deleteMeal(){
+  if (!state.editId) return;
+  if (!confirm('删除这条饮食记录？')) return;
+  var id = state.editId;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.tombs[id] = nowIso();
+  save();
+  render();
+  $('dlgMeal').close();
+  toast('已删除');
+}
+
+
+function findWeightItem(id){
+  for (var i = 0; i < state.items.length; i++){
+    if (state.items[i].id === id) return state.items[i];
+  }
+  return null;
+}
+
+function openWeight(id){
+  state.editId = id || null;
+  state.editKind = 'weight';
+  var it = id ? findWeightItem(id) : null;
+  $('wTitle').textContent = it ? '编辑体重' : '记录体重';
+  $('wDate').value = it ? it.date : todayIso();
+  $('wKg').value = it && it.kg ? String(it.kg) : '';
+  $('wFat').value = it && it.fat ? String(it.fat) : '';
+  $('wNote').value = it && it.note ? it.note : '';
+  $('btnDelW').style.display = it ? 'block' : 'none';
+  $('dlgWeight').showModal();
+}
+
+function saveWeight(){
+  var date = $('wDate').value;
+  if (!date){ toast('先选日期'); return; }
+  var kg = numOrNull($('wKg').value);
+  if (kg === null || kg < 20 || kg > 300){ toast('填体重（kg），20 到 300 之间'); return; }
+  var fat = numOrNull($('wFat').value);
+  if (fat !== null && (fat < 2 || fat > 70)){ toast('体脂在 2% 到 70% 之间，可不填'); return; }
+  var old = state.editId ? findWeightItem(state.editId) : null;
+  var it = {
+    id: old ? old.id : 'weight:' + date, kind: 'weight', date: date,
+    kg: Math.round(kg * 10) / 10,
+    fat: fat,
+    note: $('wNote').value.trim(),
+    updated: nowIso()
+  };
+  state.items = state.items.filter(function(x){ return x.id !== it.id || x.kind !== 'weight'; });
+  state.items.push(it);
+  save();
+  render();
+  $('dlgWeight').close();
+  toast('已记录：' + it.kg.toFixed(1) + ' kg（' + it.date + '）');
+}
+
+function deleteWeight(){
+  if (!state.editId) return;
+  if (!confirm('删除这条体重记录？')) return;
+  var id = state.editId;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.tombs[id] = nowIso();
+  save();
+  render();
+  $('dlgWeight').close();
+  toast('已删除');
+}
+
+/* ---------- 导入 / 导出 ---------- */
+function importText(text, label){
+  var r = parseImportText(text, 'auto');
+  if (r.error){ toast(r.error); return; }
+  if (!r.records.length){ toast('没解析出记录' + (r.bad ? '（' + r.bad + ' 行格式不对）' : '')); return; }
+  var res = mergeRecords(state.records, r.records);
+  state.records = res.list;
+  save();
+  render();
+  toast((label || '导入') + '：新增 ' + res.added + ' 天，覆盖 ' + res.updated + ' 天' +
+    (r.bad ? '，跳过 ' + r.bad + ' 行' : ''));
+}
+
+function readFileSmart(file, cb){
+  var reader = new FileReader();
+  reader.onload = function(){
+    var buf = reader.result;
+    var text = new TextDecoder('utf-8').decode(buf);
+    var bad = (text.match(/\uFFFD/g) || []).length;
+    if (bad > 3){
+      try { text = new TextDecoder('gbk').decode(buf); } catch (e) {}
+    }
+    cb(text);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function download(name, content, mime){
+  var blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1200);
+}
+
+function csvCell(v){ return String(v === null || v === undefined ? '' : v).replace(/[\r\n,]/g, ' '); }
+function csvText(rows){
+  return '\uFEFF' + rows.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n');
+}
+
+function exportCsv(){
+  var tab = state.tab;
+  if (tab === 'ex'){
+    var exs = itemsOf(state.items, 'ex').slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    if (!exs.length){ toast('还没有运动记录'); return; }
+    var rows = [['日期', '类型', '分钟', '千卡', '公里', '备注']];
+    exs.forEach(function(it){ rows.push([it.date, it.type, it.minutes, it.kcal, it.km, it.note]); });
+    download('运动记录-' + todayIso() + '.csv', csvText(rows), 'text/csv;charset=utf-8');
+    toast('已导出 ' + exs.length + ' 条运动记录');
+    return;
+  }
+  if (tab === 'meal'){
+    var meals = itemsOf(state.items, 'meal').slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    if (!meals.length){ toast('还没有饮食记录'); return; }
+    var mrows = [['日期', '餐次', '内容', '千卡', '备注']];
+    meals.forEach(function(it){ mrows.push([it.date, it.meal, it.text, it.kcal, it.note]); });
+    download('饮食记录-' + todayIso() + '.csv', csvText(mrows), 'text/csv;charset=utf-8');
+    toast('已导出 ' + meals.length + ' 条饮食记录');
+    return;
+  }
+  if (tab === 'weight'){
+    var ws = weightEntries(state.items);
+    if (!ws.length){ toast('还没有体重记录'); return; }
+    var wrows = [['日期', '体重kg', '体脂%', '备注']];
+    ws.forEach(function(e){ wrows.push([e.date, e.kg, e.fat === null ? '' : e.fat, e.note]); });
+    download('体重记录-' + todayIso() + '.csv', csvText(wrows), 'text/csv;charset=utf-8');
+    toast('已导出 ' + ws.length + ' 条体重记录');
+    return;
+  }
+  if (!state.records.length){ toast('还没有记录'); return; }
+  var rows = [['日期', '入睡', '起床', '夜间分钟', '深睡分钟', 'REM分钟', '备注']];
+  state.records.slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(r){
+    rows.push([r.date,
+      r.bed !== null && r.bed !== undefined ? fmtClock(r.bed) : '',
+      r.wake !== null && r.wake !== undefined ? fmtClock(r.wake) : '',
+      r.total, r.deep || '', r.rem || '', (r.note || '').replace(/[\r\n,]/g, ' ')]);
+  });
+  download('睡眠记录-' + todayIso() + '.csv', csvText(rows), 'text/csv;charset=utf-8');
+  toast('已导出 CSV');
+}
+
+function backupJson(){
+  var payload = {
+    app: 'healthlog-web', version: 2, exportedAt: nowIso(),
+    target: state.target, targetKg: state.targetKg, items: state.items, tombs: state.tombs,
+    aiReviews: state.aiReviews,
+    records: state.records                                  // 兼容老版本
+  };
+  download('健康备份-' + todayIso() + '.json', JSON.stringify(payload, null, 1), 'application/json');
+  try { localStorage.setItem('sleepstat.lastBackup', String(Date.now())); } catch (e) {}
+  toast('已备份 ' + state.items.length + ' 条记录');
+  render();
+}
+
+function restoreJson(text){
+  var data;
+  try { data = JSON.parse(text); } catch (e){ toast('不是有效的 JSON'); return; }
+  var added = 0, updated = 0, fromItems = !!(data && Array.isArray(data.items));
+
+  if (fromItems){
+    var map = {};
+    state.items.forEach(function(it){ map[it.id] = it; });
+    data.items.forEach(function(it){
+      if (!it || !it.id) return;
+      var old = map[it.id];
+      if (!old){ map[it.id] = it; added++; return; }
+      if ((it.updated || '') >= (old.updated || '')){ map[it.id] = it; updated++; }
+    });
+    state.items = Object.keys(map).map(function(k){ return map[k]; });
+    if (data.tombs && typeof data.tombs === 'object'){
+      Object.keys(data.tombs).forEach(function(id){
+        var cur = state.tombs[id];
+        if (!cur || data.tombs[id] > cur) state.tombs[id] = data.tombs[id];
+      });
+    }
+  } else {
+    var recs = Array.isArray(data) ? data : (data.records || []);
+    var r = recordsFromJSON(recs, 'auto');
+    if (!r.records.length){ toast('备份里没有可识别的记录'); return; }
+    var res = mergeRecords(state.records, r.records);
+    state.records = res.list;
+    added = res.added; updated = res.updated;
+  }
+
+  if (data.target) state.target = data.target;
+  if (data.targetKg) state.targetKg = data.targetKg;
+  if (fromItems) state.records = recordsFromItems(state.items);
+  save();                                   // recordsToItems 会把两边对齐
+  state.records = recordsFromItems(state.items);
+  render();
+  toast('恢复完成：新增 ' + added + ' 条，更新 ' + updated + ' 条');
+}
+
+function demoData(){
+  var base = todayIso(), out = [];
+  var defs = [
+    [23 * 60 + 40, 7 * 60 + 5, 465], [0 * 60 + 12, 6 * 60 + 50, 398],
+    [0 * 60 + 40, 7 * 60 + 30, 410], [23 * 60 + 15, 6 * 60 + 40, 445],
+    [1 * 60 + 5, 8 * 60 + 20, 435], [23 * 60 + 30, 7 * 60 + 10, 460]
+  ];
+  for (var i = defs.length - 1; i >= 0; i--){
+    var d = defs[i];
+    var rec = { date: addDays(base, -(i + 1)), bed: d[0] % 1440, wake: d[1],
+      total: d[2], deep: Math.round(d[2] * 0.2), light: Math.round(d[2] * 0.58),
+      rem: Math.round(d[2] * 0.22), awake: null, awakenings: 1, score: 80, note: '示例' };
+    out.push(rec);
+  }
+  var res = mergeRecords(state.records, out);
+  state.records = res.list;
+
+  // 运动示例：最近 6 天里动 4 天
+  var exDefs = [
+    [1, '走路', 42, 190, 3.6], [2, '力量训练', 55, 320, null],
+    [4, '跑步', 38, 410, 6.1], [5, '骑行', 64, 430, 18.2]
+  ];
+  exDefs.forEach(function(d){
+    state.items.push({ id: uid('ex'), kind: 'ex', date: addDays(base, -d[0]), type: d[1],
+      minutes: d[2], kcal: d[3], km: d[4], note: '示例', updated: nowIso() });
+  });
+
+  // 饮食示例：最近 3 天，每天 3 餐
+  var mealPlan = [
+    ['早餐', '全麦面包 + 鸡蛋 + 豆浆', 420], ['午餐', '米饭 + 清炒西兰花 + 鸡胸', 680],
+    ['晚餐', '杂粮饭 + 番茄牛腩 + 青菜', 620]
+  ];
+  [1, 2, 3].forEach(function(back){
+    mealPlan.forEach(function(m){
+      state.items.push({ id: uid('meal'), kind: 'meal', date: addDays(base, -back),
+        meal: m[0], text: m[1], kcal: m[2], note: '示例', updated: nowIso() });
+    });
+  });
+
+  // 体重示例：30 天里从 78.4 减到 74.8，中间有平台期
+  var wPlan = [78.4, 78.0, 77.9, 77.5, 77.4, 77.0, 76.8, 76.9, 76.5, 76.2,
+               76.1, 75.9, 75.9, 75.7, 75.6, 75.6, 75.5, 75.4, 75.3, 75.2,
+               75.2, 75.1, 75.1, 75.0, 75.0, 74.9, 74.9, 74.8, 74.8, 74.8];
+  wPlan.forEach(function(kg, i){
+    var date = addDays(base, -(wPlan.length - 1 - i));
+    state.items.push({ id: 'weight:' + date, kind: 'weight', date: date, kg: kg,
+      fat: Math.round((21.5 - i * 0.08) * 10) / 10, note: '示例', updated: nowIso() });
+  });
+  if (!state.targetKg) state.targetKg = 70;
+
+  save(); render();
+  toast('已载入示例：6 天睡眠、4 次运动、3 天饮食、30 天体重');
+}
+
+/* ---------- 每日点评 ---------- */
+function latestAnyDate(){
+  return latestDate(state.items) || todayIso();
+}
+
+function defaultRevDate(){
+  var best = null;
+  recordsFromItems(state.items).forEach(function(r){
+    if (r.total && (!best || r.date > best)) best = r.date;
+  });
+  return best || latestAnyDate();
+}
+
+function ensureRevDate(){
+  if (!state.revDate) state.revDate = defaultRevDate();
+  var today = todayIso();
+  if (state.revDate > today) state.revDate = today;
+  return state.revDate;
+}
+
+function aiCfg(){ return state.ai || AI_DEFAULT; }
+function aiReady(){ return !!(state.ai && state.ai.key); }
+function loadAiCfg(){
+  state.ai = { base: AI_DEFAULT.base, model: AI_DEFAULT.model, key: '' };
+  try {
+    var raw = localStorage.getItem(LS_AI);
+    if (raw){
+      var o = JSON.parse(raw) || {};
+      state.ai.base = o.base || AI_DEFAULT.base;
+      state.ai.model = o.model || AI_DEFAULT.model;
+      state.ai.key = o.key || '';
+    }
+    var raw2 = localStorage.getItem(LS_AI_REV);
+    if (raw2) state.aiReviews = JSON.parse(raw2) || {};
+  } catch (e) { state.aiReviews = state.aiReviews || {}; }
+}
+function persistAiCfg(){
+  try { localStorage.setItem(LS_AI, JSON.stringify(state.ai)); } catch (e) {}
+}
+function persistAiReviews(){
+  try { localStorage.setItem(LS_AI_REV, JSON.stringify(state.aiReviews)); } catch (e) {}
+}
+function openAiCfg(){
+  var cfg = aiCfg();
+  $('aiKey').value = cfg.key || '';
+  $('aiModel').value = cfg.model || AI_DEFAULT.model;
+  $('aiBase').value = cfg.base || AI_DEFAULT.base;
+  $('aiShow').checked = false;
+  $('aiKey').type = 'password';
+  $('dlgAi').showModal();
+}
+function aiStatus(msg, isErr){
+  var el = $('revStatus');
+  el.textContent = msg || '';
+  el.className = 'hint ai-status' + (isErr ? ' err' : '');
+}
+function aiErrorText(status, data){
+  var detail = data && data.error && (data.error.message || data.error) || '';
+  if (status === 401) return 'API Key 无效或已过期（401）。去「设置」重新填。';
+  if (status === 402) return 'DeepSeek 账户余额不足（402），充值后再试。';
+  if (status === 429) return '请求太频繁了（429），等一会儿再试。';
+  if (status >= 500) return 'DeepSeek 服务暂时不可用（' + status + '），稍后再试。';
+  return '请求失败（HTTP ' + status + '）' + (detail ? '：' + String(detail).slice(0, 120) : '');
+}
+function fmtStamp(iso){
+  if (!iso) return '';
+  return iso.slice(5, 16).replace('T', ' ');
+}
+
+function renderReview(){
+  var date = ensureRevDate();
+  $('revDate').value = date;
+  $('revDate').max = todayIso();
+  var rec = state.aiReviews[date] || null;
+  var payload = aiDayFacts(state.items, date, { target: state.target, targetKg: state.targetKg });
+  var hash = aiPayloadHash(payload);
+  var day = payload.day;
+  var hasData = !!(day.sleep || day.exercise || day.meals || day.weight);
+
+  $('revEmpty').hidden = !!rec;
+  $('revBody').hidden = !rec;
+
+  var hint;
+  if (!aiReady()) hint = '还没填 DeepSeek 的 API Key —— 点右上角「设置」填一次，之后每天都能让大模型点评。';
+  else if (!hasData) hint = '这天还没有任何记录。先去记睡眠 / 运动 / 饮食 / 体重，再来分析。';
+  else if (state.aiBusy) hint = 'DeepSeek 正在读你这天的记录，通常十几秒。';
+  else hint = '这天有 ' + (day.sleep ? '睡眠' : '') + (day.exercise ? ' 运动' : '') +
+    (day.meals ? ' 饮食' : '') + (day.weight ? ' 体重' : '') +
+    '，点下面按钮让 DeepSeek 分析。' + (rec ? '' : '（每次分析会消耗少量 token）');
+  $('revEmptyHint').textContent = hint.trim();
+  $('btnAi').disabled = state.aiBusy;
+  $('btnAi').textContent = state.aiBusy ? '分析中…' : (aiReady() ? '让 AI 分析这天' : '先设置 API Key');
+
+  if (rec){
+    drawRing(rec.score);
+    $('revGrade').textContent = rec.score + ' 分 · ' + (rec.grade || '');
+    var wd = '日一二三四五六'[new Date(date + 'T00:00:00').getDay()];
+    $('revSub').textContent = date.slice(5) + ' 周' + wd + ' · AI 评分';
+    var defs = [['睡眠', rec.parts.sleep, 40], ['运动', rec.parts.exercise, 25],
+                ['饮食', rec.parts.diet, 25], ['体重', rec.parts.weight, 10]];
+    $('revParts').innerHTML = defs.map(function(x){
+      var pct = Math.round(x[1] / x[2] * 100);
+      var cls = pct >= 80 ? 'ok' : pct >= 50 ? 'warn' : 'bad';
+      return '<div class="part"><span class="n">' + x[0] + '</span>' +
+        '<span class="track"><span class="fill ' + cls + '" style="width:' + pct + '%"></span></span>' +
+        '<span class="v">' + x[1] + '/' + x[2] + '</span></div>';
+    }).join('');
+    $('revSummary').textContent = rec.summary || '';
+    renderIns($('revGood'), (rec.highlights && rec.highlights.length)
+      ? rec.highlights.map(function(t){ return { level: 'good', text: t }; })
+      : [{ level: 'info', text: '这条分析里没有列出亮点。' }]);
+    renderIns($('revBad'), (rec.issues && rec.issues.length)
+      ? rec.issues.map(function(t){ return { level: 'warn', text: t }; })
+      : [{ level: 'good', text: 'AI 没看出明显问题。' }]);
+    renderIns($('revTips'), (rec.tips && rec.tips.length)
+      ? rec.tips.map(function(t){ return { level: 'info', text: t }; })
+      : [{ level: 'info', text: '没有给建议。' }]);
+    $('revMeta').textContent = (rec.model || '') + ' · ' + fmtStamp(rec.at) +
+      (rec.hash && rec.hash !== hash ? ' · 记录有更新，可重新分析' : '');
+    $('btnAiRedo').disabled = state.aiBusy;
+  }
+  drawAiTrend();
+}
+
+function aiAnalyze(){
+  var date = ensureRevDate();
+  if (!aiReady()){ openAiCfg(); return; }
+  if (state.aiBusy) return;
+  var payload = aiDayFacts(state.items, date, { target: state.target, targetKg: state.targetKg });
+  var hash = aiPayloadHash(payload);
+  var cfg = aiCfg();
+  var base = String(cfg.base || AI_DEFAULT.base).replace(/\/+$/, '');
+  var model = cfg.model || AI_DEFAULT.model;
+
+  state.aiBusy = true;
+  aiStatus('正在请求 DeepSeek…', false);
+  renderReview();
+
+  var ctrl = null, timer = null;
+  try { ctrl = new AbortController(); } catch (e) {}
+  if (ctrl) timer = setTimeout(function(){ try { ctrl.abort(); } catch (e) {} }, 90000);
+
+  fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+    body: JSON.stringify({
+      model: model,
+      messages: buildAiMessages(payload),
+      temperature: 0.7,
+      max_tokens: 900,
+      response_format: { type: 'json_object' },
+      stream: false
+    }),
+    signal: ctrl ? ctrl.signal : undefined
+  }).then(function(res){
+    return res.text().then(function(txt){
+      var data = null;
+      try { data = JSON.parse(txt); } catch (e) {}
+      if (!res.ok) throw new Error(aiErrorText(res.status, data));
+      if (!data) throw new Error('接口返回的内容不是 JSON，检查「接口地址」是否填对。');
+      var content = data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content : '';
+      var rec = parseAiReview(content);
+      if (!rec) throw new Error('模型返回的内容解析不出分数，可以点「重新分析」再试一次。');
+      rec.model = data.model || model;
+      rec.at = new Date().toISOString().slice(0, 16);
+      rec.hash = hash;
+      state.aiReviews[date] = rec;
+      persistAiReviews();
+      aiStatus('', false);
+    });
+  }).catch(function(err){
+    var msg = err && err.name === 'AbortError' ? '等了 90 秒还没返回，网络可能不通，稍后再试。'
+      : (err && err.message ? err.message : '请求失败');
+    aiStatus(msg, true);
+  }).then(function(){
+    if (timer) clearTimeout(timer);
+    state.aiBusy = false;
+    renderReview();
+  });
+}
+
+function drawRing(score){
+  var svg = $('revRing');
+  var R = 48, C = 2 * Math.PI * R;
+  var pct = score === null ? 0 : scoreClamp(score / 100, 0, 1);
+  var col = score === null ? '#3d4b5c'
+    : score >= 85 ? '#4dd6a0' : score >= 70 ? '#4da3ff' : score >= 55 ? '#ffb454' : '#ff6b7a';
+  svg.innerHTML =
+    '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="#1d2a3a" stroke-width="9"></circle>' +
+    '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round"' +
+      ' stroke-dasharray="' + (C * pct).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 60 60)"></circle>' +
+    '<text x="60" y="67" text-anchor="middle" font-size="30" font-weight="650" fill="' + col + '">' +
+      (score === null ? '—' : score) + '</text>';
+}
+
+function drawAiTrend(){
+  var svg = $('revTrend');
+  var list = aiTrend(state.aiReviews, ensureRevDate(), 7);
+  var done = list.filter(function(d){ return d.score !== null; }).length;
+  $('revTrendHint').textContent = done
+    ? '最近 7 天里分析过 ' + done + ' 天，没分析的天空着。'
+    : '最近 7 天还没有分析记录。';
+  var W = 360, H = 150, padL = 26, padR = 8, padT = 14, padB = 26;
+  var iw = W - padL - padR, ih = H - padT - padB;
+  var bw = iw / list.length;
+  var out = [];
+  [0, 50, 100].forEach(function(v){
+    var y = padT + ih - ih * (v / 100);
+    out.push('<line class="gline" x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '"></line>');
+    out.push('<text class="axis" x="' + (padL - 4) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>');
+  });
+  list.forEach(function(d, i){
+    var x = padL + bw * i + bw * 0.18, w = bw * 0.64;
+    if (d.score === null){
+      out.push('<rect x="' + (x + w / 2).toFixed(1) + '" y="' + (padT + ih - 8) + '" width="1.4" height="8" fill="#3d4b5c"></rect>');
+    } else {
+      var h = Math.max(3, ih * (d.score / 100));
+      var col = d.score >= 85 ? '#4dd6a0' : d.score >= 70 ? '#4da3ff' : d.score >= 55 ? '#ffb454' : '#ff6b7a';
+      out.push('<rect x="' + x.toFixed(1) + '" y="' + (padT + ih - h).toFixed(1) + '" width="' + w.toFixed(1) +
+        '" height="' + h.toFixed(1) + '" rx="2" fill="' + col + '"></rect>');
+      out.push('<text class="axis" x="' + (x + w / 2).toFixed(1) + '" y="' + (padT + ih - h - 4).toFixed(1) +
+        '" text-anchor="middle">' + d.score + '</text>');
+    }
+    out.push('<text class="axis" x="' + (x + w / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + d.date.slice(5) + '</text>');
+  });
+  svg.innerHTML = out.join('');
+}
+
+/* ---------- 身材照片：IndexedDB 存储 ---------- */
+var PHOTO_DB = 'healthlog-photos', PHOTO_STORE = 'photos';
+
+function idbOpen(){
+  return new Promise(function(res, rej){
+    if (!window.indexedDB) { rej(new Error('no-idb')); return; }
+    var settled = false;
+    var timer = setTimeout(function(){
+      if (settled) return;
+      settled = true;
+      rej(new Error('idb-timeout'));
+    }, 4000);
+    function fail(e){
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      rej(e || new Error('idb-open'));
+    }
+    var req;
+    try { req = indexedDB.open(PHOTO_DB, 1); } catch (e) { fail(e); return; }
+    req.onupgradeneeded = function(){
+      var db = req.result;
+      if (!db.objectStoreNames.contains(PHOTO_STORE)) db.createObjectStore(PHOTO_STORE, { keyPath: 'date' });
+    };
+    req.onsuccess = function(){
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      res(req.result);
+    };
+    req.onerror = function(){ fail(req.error); };
+    req.onblocked = function(){ fail(new Error('idb-blocked')); };
+  });
+}
+
+function idbDo(mode, fn){
+  return idbOpen().then(function(db){
+    return new Promise(function(res, rej){
+      var done = false;
+      var timer = setTimeout(function(){
+        finish(rej, new Error('idb-tx-timeout'));
+      }, 5000);
+      function finish(fn, v){
+        if (done) return;
+        done = true; clearTimeout(timer);
+        try { db.close(); } catch (e) {}
+        fn(v);
+      }
+      var tx = db.transaction(PHOTO_STORE, mode);
+      var req = fn(tx.objectStore(PHOTO_STORE));
+      tx.oncomplete = function(){ finish(res, req ? req.result : undefined); };
+      tx.onerror = function(){ finish(rej, tx.error || new Error('idb-tx')); };
+      tx.onabort = function(){ finish(rej, tx.error || new Error('abort')); };
+    });
+  });
+}
+
+function photoAll(){
+  return idbDo('readonly', function(st){ return st.getAll(); }).then(function(list){
+    return (list || []).sort(function(a, b){ return a.date < b.date ? 1 : -1; });
+  });
+}
+
+function loadPhotos(){
+  if (!window.indexedDB){ state.photoSupport = false; state.photos = []; return Promise.resolve(); }
+  return photoAll().then(function(list){
+    state.photos = list.map(function(r){
+      return { date: r.date, note: r.note || '', updated: r.updated, w: r.w, h: r.h, full: r.full, thumb: r.thumb };
+    });
+  }).catch(function(err){
+    state.photoSupport = false; state.photos = [];
+    if (err && err.message === 'idb-timeout') toast('本地照片存储打不开，照片功能暂不可用');
+  });
+}
+
+function photoUrl(date, kind){
+  var key = date + '|' + kind;
+  if (state.photoUrls[key]) return state.photoUrls[key];
+  var rec = state.photos.filter(function(r){ return r.date === date; })[0];
+  if (!rec) return '';
+  var blob = kind === 'thumb' ? (rec.thumb || rec.full) : (rec.full || rec.thumb);
+  if (!blob) return '';
+  var url = URL.createObjectURL(blob);
+  state.photoUrls[key] = url;
+  return url;
+}
+
+function dropPhotoUrls(date){
+  ['full', 'thumb'].forEach(function(kind){
+    var key = date + '|' + kind;
+    if (state.photoUrls[key]) { URL.revokeObjectURL(state.photoUrls[key]); delete state.photoUrls[key]; }
+  });
+}
+
+function readImageFile(file){
+  return new Promise(function(res, rej){
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('图片读不出来')); };
+    img.src = url;
+  });
+}
+
+function shrinkImage(img, maxSide, quality){
+  var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  var scale = Math.min(1, maxSide / Math.max(w, h));
+  var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+  var cv = document.createElement('canvas');
+  cv.width = cw; cv.height = ch;
+  var ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0e1621'; ctx.fillRect(0, 0, cw, ch);
+  ctx.drawImage(img, 0, 0, cw, ch);
+  return new Promise(function(res){
+    if (!cv.toBlob){ res({ blob: null, w: cw, h: ch }); return; }
+    cv.toBlob(function(b){ res({ blob: b, w: cw, h: ch }); }, 'image/jpeg', quality);
+  });
+}
+
+function openCamera(date){
+  if (!state.photoSupport){ toast('这台浏览器不支持本地照片存储'); return; }
+  state.photoEdit = { date: date || todayIso(), isNew: true };
+  $('fPhoto').value = '';
+  $('fPhoto').click();
+}
+
+function openPhotoEdit(date){
+  var rec = state.photos.filter(function(r){ return r.date === date; })[0];
+  if (!rec) return;
+  state.photoEdit = { date: rec.date, isNew: false };
+  $('phTitle').textContent = '身材照片 · ' + rec.date;
+  $('phDate').value = rec.date;
+  $('phNote').value = rec.note || '';
+  $('btnDelPh').style.display = '';
+  $('phPreview').innerHTML = '<img src="' + photoUrl(rec.date, 'full') + '" alt="身材照片">';
+  $('dlgPhoto').showModal();
+}
+
+function renderPhotos(){
+  var list = state.photos;
+  var st = photoStats(list, todayIso());
+  var k = [];
+  k.push(kpi('照片', st.count ? String(st.count) : '—', st.count ? '张' : '还没拍', st.count ? 'ok' : ''));
+  k.push(kpi('最近一张', st.last ? st.last.slice(5) : '—',
+    st.daysSinceLast === null ? '—' : (st.daysSinceLast === 0 ? '就是今天' : st.daysSinceLast + ' 天前'), ''));
+  k.push(kpi('时间跨度', st.count > 1 ? String(st.span) + ' 天' : '—',
+    st.count > 1 ? (st.first.slice(5) + ' 起') : '拍两张才有对比', ''));
+  k.push(kpi('本月', String(st.thisMonth), '张', ''));
+  $('kpisPh').innerHTML = k.join('');
+
+  // 对比下拉
+  var dates = photoDatesDesc(list);
+  var pair = photoComparePair(list);
+  var opts = dates.map(function(d){
+    return '<option value="' + d + '">' + d + '</option>';
+  }).join('');
+  var wantL = pair.left, wantR = pair.right;
+  if ($('phLeft').dataset.init && $('phLeft').value && dates.indexOf($('phLeft').value) >= 0) wantL = $('phLeft').value;
+  if ($('phRight').dataset.init && $('phRight').value && dates.indexOf($('phRight').value) >= 0) wantR = $('phRight').value;
+  $('phLeft').innerHTML = opts;
+  $('phRight').innerHTML = opts;
+  if (wantL) $('phLeft').value = wantL;
+  if (wantR) $('phRight').value = wantR;
+  $('phLeft').dataset.init = '1';
+  $('phRight').dataset.init = '1';
+
+  renderCompare();
+
+  // 网格
+  if (!list.length){
+    $('phGrid').innerHTML = '<div class="empty-ph" style="grid-column:1 / -1">' +
+      (state.photoSupport ? '还没有照片。点下面「＋ 拍照」每天拍一张，' :
+        '这台浏览器没有开放本地照片存储（隐私模式或被策略禁用），换个普通窗口再试。') +
+      '正面、侧面各一张，穿同样的衣服更直观。</div>';
+    return;
+  }
+  $('phGrid').innerHTML = list.map(function(r){
+    return '<div class="ph" data-date="' + r.date + '">' +
+      '<img loading="lazy" src="' + photoUrl(r.date, 'thumb') + '" alt="' + r.date + '">' +
+      (r.note ? '<span class="n">' + esc(r.note) + '</span>' : '') +
+      '<span class="d">' + r.date.slice(5) + '</span></div>';
+  }).join('');
+}
+
+function weightOn(date){
+  var it = state.items.filter(function(x){ return x.kind === 'weight' && x.date === date; })[0];
+  return it ? it.kg : null;
+}
+
+function renderCompare(){
+  var L = $('phLeft').value, R = $('phRight').value;
+  if (!L || !R){ $('phCompare').innerHTML = '<div class="empty-ph" style="grid-column:1 / -1">拍满两张就能看到对比。</div>'; return; }
+  function side(date, cls){
+    var kg = weightOn(date);
+    return '<figure><div class="box"><img src="' + photoUrl(date, 'full') + '" alt="' + date + '"></div>' +
+      '<figcaption>' + date + (kg ? ' · ' + kg.toFixed(1) + ' kg' : '') + '</figcaption></figure>';
+  }
+  var gap = dayDiff(L, R);
+  var kgL = weightOn(L), kgR = weightOn(R);
+  var tip = '';
+  if (kgL !== null && kgR !== null && L !== R){
+    var d = Math.round((kgL - kgR) * 10) / 10;
+    if (Math.abs(d) >= 0.1) tip = '<div class="hint">相隔 ' + Math.abs(gap) + ' 天，体重' + (d > 0 ? '下降' : '上升') + ' ' + Math.abs(d).toFixed(1) + ' kg。</div>';
+  }
+  $('phCompare').innerHTML = side(L) + side(R) + '<div style="grid-column:1 / -1">' + tip + '</div>';
+}
+
+function savePhotoRecord(){
+  if (!state.photoEdit) return;
+  var date = $('phDate').value || state.photoEdit.date;
+  var note = $('phNote').value.trim();
+  var pending = state.photoEdit.pending;
+  if (!pending){
+    // 只改日期/备注：把旧记录搬过去
+    var old = state.photoEdit.isNew ? null : state.photos.filter(function(r){ return r.date === state.photoEdit.date; })[0];
+    if (old && date !== old.date){
+      return idbDo('readwrite', function(st){ return st.delete(old.date); }).then(function(){
+        return idbDo('readwrite', function(st){
+          return st.put({ date: date, note: note, updated: nowIso(), w: old.w, h: old.h, full: old.full, thumb: old.thumb });
+        });
+      }).then(function(){
+        dropPhotoUrls(old.date);
+        state.photoEdit = null; $('dlgPhoto').close();
+        return loadPhotos().then(function(){ render(); toast('已更新'); });
+      }).catch(function(){ toast('保存失败'); });
+    }
+    if (old){
+      old.note = note;
+      return idbDo('readwrite', function(st){
+        return st.put({ date: old.date, note: note, updated: nowIso(), w: old.w, h: old.h, full: old.full, thumb: old.thumb });
+      }).then(function(){
+        state.photoEdit = null; $('dlgPhoto').close();
+        return loadPhotos().then(function(){ render(); toast('备注已保存'); });
+      }).catch(function(){ toast('保存失败'); });
+    }
+    $('dlgPhoto').close(); return;
+  }
+  var rec = { date: date, note: note, updated: nowIso(), w: pending.w, h: pending.h, full: pending.full, thumb: pending.thumb };
+  idbDo('readwrite', function(st){ return st.put(rec); }).then(function(){
+    dropPhotoUrls(date);
+    state.photoEdit = null;
+    $('dlgPhoto').close();
+    return loadPhotos().then(function(){ render(); toast('已保存 ' + date + ' 的照片'); });
+  }).catch(function(){ toast('存储空间不够，换张小一点的图试试'); });
+}
+
+function deletePhoto(){
+  if (!state.photoEdit) return;
+  var date = state.photoEdit.date;
+  if (!confirm('删除 ' + date + ' 的照片？')) return;
+  idbDo('readwrite', function(st){ return st.delete(date); }).then(function(){
+    dropPhotoUrls(date);
+    state.photoEdit = null;
+    $('dlgPhoto').close();
+    return loadPhotos().then(function(){ render(); toast('已删除'); });
+  }).catch(function(){ toast('删除失败'); });
+}
+
+function photoToDataUrl(blob){
+  return new Promise(function(res, rej){
+    var fr = new FileReader();
+    fr.onload = function(){ res(fr.result); };
+    fr.onerror = function(){ rej(fr.error); };
+    fr.readAsDataURL(blob);
+  });
+}
+
+function dataUrlToBlob(url){
+  var parts = String(url).split(',');
+  var mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+  var bin = atob(parts[1] || '');
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function backupPhotos(){
+  if (!state.photos.length){ toast('还没有照片'); return; }
+  toast('正在打包 ' + state.photos.length + ' 张……');
+  Promise.all(state.photos.map(function(r){
+    return Promise.all([photoToDataUrl(r.full), r.thumb ? photoToDataUrl(r.thumb) : Promise.resolve('')])
+      .then(function(res){ return { date: r.date, note: r.note, updated: r.updated, w: r.w, h: r.h, full: res[0], thumb: res[1] }; });
+  })).then(function(list){
+    var payload = { app: 'healthlog-photos', version: 1, exportedAt: nowIso(), photos: list };
+    download('身材照片备份-' + todayIso() + '.json', JSON.stringify(payload), 'application/json');
+    toast('已导出 ' + list.length + ' 张照片');
+  }).catch(function(){ toast('导出失败'); });
+}
+
+function restorePhotos(text){
+  var data;
+  try { data = JSON.parse(text); } catch (e){ toast('不是有效的 JSON'); return; }
+  var list = data && Array.isArray(data.photos) ? data.photos : [];
+  if (!list.length){ toast('备份里没有照片'); return; }
+  list.reduce(function(chain, r){
+    return chain.then(function(){
+      if (!r || !r.date || !r.full) return null;
+      var rec = {
+        date: r.date, note: r.note || '', updated: r.updated || nowIso(), w: r.w || 0, h: r.h || 0,
+        full: dataUrlToBlob(r.full), thumb: r.thumb ? dataUrlToBlob(r.thumb) : null
+      };
+      return idbDo('readwrite', function(st){ return st.put(rec); });
+    });
+  }, Promise.resolve()).then(function(){
+    return loadPhotos().then(function(){ render(); toast('已恢复 ' + list.length + ' 张照片'); });
+  }).catch(function(){ toast('恢复失败'); });
+}
+
+/* ---------- 事件绑定 ---------- */
+function bind(){
+  $('btnAdd').onclick = function(){
+    if (state.tab === 'ex') openEx(null);
+    else if (state.tab === 'meal') openMeal(null);
+    else if (state.tab === 'weight') openWeight(null);
+    else if (state.tab === 'review') openAdd(state.revDate || null);
+    else if (state.tab === 'photo') openCamera(todayIso());
+    else openAdd(null);
+  };
+  $('revPrev').onclick = function(){
+    state.revDate = addDays(ensureRevDate(), -1);
+    renderReview();
+  };
+  $('revNext').onclick = function(){
+    var next = addDays(ensureRevDate(), 1);
+    state.revDate = next > todayIso() ? todayIso() : next;
+    renderReview();
+  };
+  $('revDate').onchange = function(){
+    var v = $('revDate').value;
+    if (!v) return;
+    state.revDate = v > todayIso() ? todayIso() : v;
+    aiStatus('', false);
+    renderReview();
+  };
+  $('btnAi').onclick = function(){ aiAnalyze(); };
+  $('btnAiRedo').onclick = function(){ aiAnalyze(); };
+  $('btnAiCfg').onclick = function(){ openAiCfg(); };
+  $('aiShow').onchange = function(){
+    $('aiKey').type = $('aiShow').checked ? 'text' : 'password';
+  };
+  $('btnCancelAi').onclick = function(){ $('dlgAi').close(); };
+  $('btnSaveAi').onclick = function(){
+    state.ai = {
+      key: ($('aiKey').value || '').trim(),
+      model: ($('aiModel').value || '').trim() || AI_DEFAULT.model,
+      base: ($('aiBase').value || '').trim() || AI_DEFAULT.base
+    };
+    persistAiCfg();
+    $('dlgAi').close();
+    aiStatus('', false);
+    renderReview();
+    toast(state.ai.key ? 'AI 设置已保存' : '已清空 API Key');
+  };
+  $('fPhoto').onchange = function(){
+    var file = this.files && this.files[0];
+    if (!file || !state.photoEdit) return;
+    toast('正在处理照片……');
+    readImageFile(file).then(function(img){
+      return Promise.all([shrinkImage(img, 1280, 0.86), shrinkImage(img, 360, 0.72)]);
+    }).then(function(res){
+      var full = res[0], thumb = res[1];
+      if (!full.blob){ toast('这张图处理不了'); return; }
+      state.photoEdit.pending = { full: full.blob, w: full.w, h: full.h, thumb: thumb.blob };
+      var url = URL.createObjectURL(full.blob);
+      $('phTitle').textContent = state.photoEdit.isNew ? '记录身材' : '身材照片 · ' + state.photoEdit.date;
+      $('phDate').value = state.photoEdit.date;
+      $('phNote').value = '';
+      $('btnDelPh').style.display = 'none';
+      $('phPreview').innerHTML = '<img src="' + url + '" alt="预览">';
+      $('dlgPhoto').showModal();
+    }).catch(function(){ toast('照片读不出来'); });
+  };
+  $('btnSavePh').onclick = function(){ savePhotoRecord(); };
+  $('btnDelPh').onclick = function(){ deletePhoto(); };
+  $('btnCancelPh').onclick = function(){
+    state.photoEdit = null;
+    $('phPreview').innerHTML = '';
+    $('dlgPhoto').close();
+  };
+  $('phLeft').onchange = function(){ renderCompare(); };
+  $('phRight').onchange = function(){ renderCompare(); };
+  $('phGrid').onclick = function(e){
+    var el = e.target.closest ? e.target.closest('.ph') : null;
+    if (!el) return;
+    openPhotoEdit(el.getAttribute('data-date'));
+  };
+  $('btnPhotoBackup').onclick = function(){ backupPhotos(); };
+  $('btnPhotoRestore').onclick = function(){ $('fPhotoBackup').click(); };
+  $('fPhotoBackup').onchange = function(){
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){ restorePhotos(String(fr.result)); };
+    fr.readAsText(f);
+    this.value = '';
+  };
+  $('btnData').onclick = function(){ $('dlgData').showModal(); };
+  $('btnTarget').onclick = function(){
+    if (state.tab === 'weight'){
+      var kg = prompt('目标体重（kg），例如 70 或 68.5：', state.targetKg ? String(state.targetKg) : '');
+      if (kg === null) return;
+      var n = Number(String(kg).replace(/[^\d.]/g, ''));
+      if (!isFinite(n) || n < 30 || n > 200){ toast('需在 30–200 kg 之间'); return; }
+      state.targetKg = Math.round(n * 10) / 10; save(); render();
+      toast('目标体重已设为 ' + state.targetKg.toFixed(1) + ' kg');
+      return;
+    }
+    var v = prompt('目标睡眠时长，例如 8h、7h30m、450：', fmtHM(state.target));
+    if (v === null) return;
+    var mins = parseDuration(v, 'auto');
+    if (!mins || mins < 240 || mins > 720){ toast('需在 4h–12h 之间'); return; }
+    state.target = mins; save(); render(); toast('目标已设为 ' + fmtHM(mins));
+  };
+  $('btnCancelAdd').onclick = function(){ $('dlgAdd').close(); };
+  $('btnSaveAdd').onclick = function(e){ e.preventDefault(); saveAdd(); };
+  $('btnCancelEx').onclick = function(){ $('dlgEx').close(); };
+  $('btnSaveEx').onclick = function(e){ e.preventDefault(); saveEx(); };
+  $('btnDelEx').onclick = function(e){ e.preventDefault(); deleteEx(); };
+  $('btnCancelW').onclick = function(){ $('dlgWeight').close(); };
+  $('btnSaveW').onclick = function(e){ e.preventDefault(); saveWeight(); };
+  $('btnDelW').onclick = function(e){ e.preventDefault(); deleteWeight(); };
+  $('btnCancelMeal').onclick = function(){ $('dlgMeal').close(); };
+  $('btnSaveMeal').onclick = function(e){ e.preventDefault(); saveMeal(); };
+  $('btnDelMeal').onclick = function(e){ e.preventDefault(); deleteMeal(); };
+  $('btnCloseData').onclick = function(){ $('dlgData').close(); };
+
+  $('tabs').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if (!b) return;
+    setTab(b.dataset.tab);
+  });
+
+  $('listEx').addEventListener('click', function(e){
+    var row = e.target.closest('.row');
+    if (row) openEx(row.dataset.id);
+  });
+  $('listMeal').addEventListener('click', function(e){
+    var row = e.target.closest('.row');
+    if (row) openMeal(row.dataset.id);
+  });
+  $('listW').addEventListener('click', function(e){
+    var row = e.target.closest('.row');
+    if (row) openWeight(row.dataset.id);
+  });
+
+  $('rangeBtns').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if (!b) return;
+    state.days = Number(b.dataset.days);
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function(x){
+      x.classList.toggle('on', x === b);
+    });
+    render();
+  });
+
+  $('list').addEventListener('click', function(e){
+    var row = e.target.closest('.row');
+    if (row) openAdd(row.dataset.date);
+  });
+
+  $('fileInput').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    readFileSmart(f, function(text){ importText(text, f.name); });
+    e.target.value = '';
+  });
+
+  $('btnPaste').onclick = function(){
+    var t = $('pasteBox').value.trim();
+    if (!t){ toast('先粘贴内容'); return; }
+    importText(t, '粘贴导入');
+    $('pasteBox').value = '';
+  };
+
+  $('btnExportCsv').onclick = exportCsv;
+  $('btnBackup').onclick = backupJson;
+
+  $('btnRestore').onclick = function(){ $('restoreInput').click(); };
+  $('restoreInput').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    readFileSmart(f, function(text){ restoreJson(text); });
+    e.target.value = '';
+  });
+
+  $('btnDemo').onclick = demoData;
+
+  $('btnClear').onclick = function(){
+    var n = state.items.length;
+    if (!n){ toast('已经是空的了'); return; }
+    if (!confirm('清空全部 ' + n + ' 条记录（睡眠/运动/饮食/体重）？此操作不可撤销，建议先备份。')) return;
+    var now = nowIso();
+    state.items.forEach(function(it){ state.tombs[it.id] = now; });
+    state.items = [];
+    state.records = [];
+    save(); render();
+    toast('已清空');
+  };
+}
+
+/* ---------- 装到桌面（PWA）+ 离线 ---------- */
+var installEvt = null;
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+         window.navigator.standalone === true;
+}
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  installEvt = e;
+  var b = document.getElementById('btnInstall');
+  if (b) b.style.display = '';
+});
+document.getElementById('btnInstall').onclick = function(){
+  if (isStandalone()){ toast('已经装在桌面上了'); return; }
+  if (installEvt){
+    installEvt.prompt();
+    installEvt.userChoice.then(function(r){
+      toast(r && r.outcome === 'accepted' ? '正在安装…' : '取消了');
+      installEvt = null;
+    }).catch(function(){});
+    return;
+  }
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  alert(ios
+    ? '在 Safari 里点底部的「分享」按钮 →「添加到主屏幕」。'
+    : '点右上角浏览器菜单，选「安装应用」或「添加到主屏幕」。');
+};
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js', {scope: './'}).then(function(reg){
+    self.__swReady = true;
+  }).catch(function(){});
+}
+
+load();
+bind();
+loadAiCfg();
+loadPhotos().then(function(){ if (state.tab === 'photo') render(); });
+render();
+if (syncBase()) syncNow(true);
+</script>
+</body>
+</html>
