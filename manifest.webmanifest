@@ -1,0 +1,17 @@
+{
+  "name": "健康记录",
+  "short_name": "健康记录",
+  "description": "记录每天的睡眠、运动和饮食。数据只存在这台设备上，可导出 CSV / JSON。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b121b",
+  "theme_color": "#0e1621",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
