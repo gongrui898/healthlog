@@ -186,6 +186,11 @@ section[hidden]{display:none}
   margin:14px 0 6px;padding-top:6px;border-top:1px solid var(--line)}
 .mealday:first-child{border-top:0;margin-top:0;padding-top:0}
 .mealday b{color:var(--warn);font-weight:600}
+.love-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.love-h h2{margin:0}
+.blur{filter:blur(9px);pointer-events:none;user-select:none;transition:filter .15s}
+.cyc-day{font-size:12.5px;color:var(--dim);margin:2px 0 6px}
+.row .d.w{width:104px}
 </style>
 </head>
 <body>
@@ -204,6 +209,7 @@ section[hidden]{display:none}
     <button data-tab="meal">吃</button>
     <button data-tab="weight">体重</button>
     <button data-tab="photo">身材</button>
+    <button data-tab="love">爱</button>
     <button data-tab="review">点评</button>
   </div>
 
@@ -306,6 +312,42 @@ section[hidden]{display:none}
     </div>
   </section>
 
+  <section id="tabLove" hidden>
+    <div class="card">
+      <div class="love-h">
+        <h2>亲密记录</h2>
+        <button type="button" id="btnPriv" class="mini">显示</button>
+      </div>
+      <div id="loveBody" class="blur">
+        <div class="kpis" id="kpisLove"></div>
+        <svg id="chartLove" viewBox="0 0 360 150" role="img" aria-label="每天次数"></svg>
+      </div>
+    </div>
+    <div class="card">
+      <div class="love-h">
+        <h2>她的周期</h2>
+        <button type="button" id="btnAddPeriod" class="mini">＋ 记月经</button>
+      </div>
+      <div id="cycBody" class="blur">
+        <div class="kpis" id="cycTop"></div>
+        <ul class="ins" id="insCycle"></ul>
+        <div id="listCycles"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>结论</h2>
+      <div id="insLoveWrap" class="blur">
+        <ul class="ins" id="insLove"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>亲密明细</h2>
+      <div id="listLoveWrap" class="blur">
+        <div id="listLove"></div>
+      </div>
+    </div>
+  </section>
+
   <section id="tabReview" hidden>
     <div class="card">
       <h2>AI 点评<button id="btnAiCfg" class="mini">设置</button></h2>
@@ -358,6 +400,44 @@ section[hidden]{display:none}
     </div>
   </section>
 </main>
+
+<dialog id="dlgLove">
+  <form method="dialog" id="formLove">
+    <div class="dlg-h" id="lvTitle">记录一次</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>日期</label><input type="date" id="lvDate" required></div>
+        <div><label>次数</label><input id="lvCount" inputmode="numeric" placeholder="1"></div>
+      </div>
+      <div><label>备注（可选）</label><input id="lvNote" placeholder="……"></div>
+      <div class="hint">一天记一条，同一天多次就改「次数」。这些数据只存在这台手机上：不进同步、不发给 AI 点评（备份 JSON 里会有，截图分享前先隐藏）。</div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelLv">取消</button>
+      <button type="button" id="btnDelLv" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSaveLv">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPeriod">
+  <form method="dialog" id="formPeriod">
+    <div class="dlg-h" id="pdTitle">记月经</div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div><label>来的日子</label><input type="date" id="pdStart" required></div>
+        <div><label>走的日子（可选）</label><input type="date" id="pdEnd"></div>
+      </div>
+      <div><label>备注（可选）</label><input id="pdNote" placeholder="量多、痛经……"></div>
+      <div class="hint">还在经期就只填「来的日子」，之后回来补「走的日子」，周期和预计下次会自动更新。</div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" id="btnCancelPd">取消</button>
+      <button type="button" id="btnDelPd" style="display:none">删除</button>
+      <button type="button" class="primary" id="btnSavePd">保存</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="dlgAi">
   <h3>AI 设置</h3>
@@ -1721,6 +1801,131 @@ function mealDayTotals(items){
   return out;
 }
 
+/* 隐私：同步只发这四类，亲密记录与她的周期永不出本机 */
+function syncSafeItems(items){
+  return (items || []).filter(function(x){ return x.kind !== 'intimacy' && x.kind !== 'period'; });
+}
+
+/* ---------- 爱：亲密记录 + 她的周期 ---------- */
+function loveStats(items, days, today){
+  var list = itemsOf(items, 'intimacy').filter(function(it){ return it && it.date; })
+    .slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  var win = dayKeys(today, days);
+  var byDay = {}, total = 0, dayCount = 0;
+  list.forEach(function(it){
+    if (it.date < win[0] || it.date > today) return;
+    var n = it.count || 1;
+    byDay[it.date] = (byDay[it.date] || 0) + n;
+    total += n; dayCount++;
+  });
+  var last = list.length ? list[list.length - 1] : null;
+  var month = today.slice(0, 7);
+  var prevMonth = (function(){
+    var d = new Date(today + 'T00:00:00');
+    d.setDate(1); d.setMonth(d.getMonth() - 1);
+    return isoDate(d).slice(0, 7);
+  })();
+  var monthN = 0, monthDays = 0, prevN = 0;
+  list.forEach(function(it){
+    var n = it.count || 1, m = it.date.slice(0, 7);
+    if (m === month){ monthN += n; monthDays++; }
+    else if (m === prevMonth) prevN += n;
+  });
+  var inWin = list.filter(function(it){ return it.date >= win[0] && it.date <= today; });
+  return {
+    days: days, window: win.length,
+    filled: win.map(function(d){ return { date: d, n: byDay[d] || 0 }; }),
+    total: total, dayCount: dayCount,
+    last: last, daysSince: last ? dayDiff(last.date, today) : null,
+    monthN: monthN, monthDays: monthDays, prevN: prevN,
+    avgPerWeek: total / Math.max(1, days / 7),
+    streak: streakOf(win.map(function(d){ return { date: d, has: !!byDay[d] }; })),
+    entries: inWin.slice().reverse(),
+    has: list.length > 0
+  };
+}
+
+function buildLoveInsights(s){
+  var out = [];
+  if (!s.has){
+    out.push({ level: 'info', text: '还没有记录。点下面的「＋ 爱」记一次，这里就会出现次数和频率。' });
+    return out;
+  }
+  if (s.monthN){
+    var diff = s.monthN - s.prevN;
+    out.push({ level: 'info', text: '这个月 ' + s.monthN + ' 次（' + s.monthDays + ' 天），' +
+      (s.prevN ? '上月 ' + s.prevN + ' 次，' + (diff > 0 ? '多了 ' + diff + ' 次' : (diff < 0 ? '少了 ' + (-diff) + ' 次' : '一样多')) : '上月还没有记录') + '。' });
+  } else {
+    out.push({ level: 'warn', text: '这个月还没有记录。' + (s.prevN ? '上个月是 ' + s.prevN + ' 次。' : '') });
+  }
+  out.push({ level: 'good', text: '近 ' + s.days + ' 天 ' + s.total + ' 次，平均每周 ' + round1(s.avgPerWeek) + ' 次。' });
+  if (s.daysSince !== null){
+    out.push({ level: 'info', text: s.daysSince === 0 ? '最近一次就是今天。' :
+      '距上次 ' + s.daysSince + ' 天（' + s.last.date.slice(5) + '）。' });
+  }
+  if (s.streak >= 3) out.push({ level: 'good', text: '已经连续 ' + s.streak + ' 天有记录，数据挺完整。' });
+  return out;
+}
+
+function periodStats(items, today){
+  var cs = itemsOf(items, 'period').filter(function(it){ return it && it.start; })
+    .slice().sort(function(a, b){ return a.start < b.start ? -1 : 1; });
+  var cycles = cs.map(function(it){
+    var len = it.end ? dayDiff(it.start, it.end) + 1 : null;
+    return {
+      id: it.id, start: it.start, end: it.end || '', len: len, note: it.note || '',
+      ongoing: !it.end && it.start <= today
+    };
+  });
+  var lens = cycles.filter(function(c){ return c.len; }).map(function(c){ return c.len; });
+  var gaps = [];
+  for (var i = 1; i < cycles.length; i++) gaps.push(dayDiff(cycles[i - 1].start, cycles[i].start));
+  var last = cycles.length ? cycles[cycles.length - 1] : null;
+  var avgCycle = gaps.length ? Math.round(mean(gaps)) : null;
+  var avgLen = lens.length ? round1(mean(lens)) : null;
+  var next = (last && avgCycle) ? addDays(last.start, avgCycle) : null;
+  return {
+    cycles: cycles, last: last,
+    ongoing: last && last.ongoing ? last : null,
+    dayOf: last ? dayDiff(last.start, today) + 1 : null,
+    lens: lens, gaps: gaps,
+    avgCycle: avgCycle, avgLen: avgLen,
+    cycleMin: gaps.length ? Math.min.apply(null, gaps) : null,
+    cycleMax: gaps.length ? Math.max.apply(null, gaps) : null,
+    next: next, toNext: next ? dayDiff(today, next) : null,
+    has: cycles.length > 0
+  };
+}
+
+function buildCycleInsights(p){
+  var out = [];
+  if (!p.has){
+    out.push({ level: 'info', text: '还没记月经。点「＋ 记月经」选「来的日子」，多记两次就能算出周期和预计下次。' });
+    return out;
+  }
+  if (p.ongoing){
+    out.push({ level: 'info', text: '经期中：第 ' + p.dayOf + ' 天（' + p.ongoing.start.slice(5) + ' 开始），走了之后记得回来补「走的日子」。' });
+  } else {
+    out.push({ level: 'info', text: '不在经期，距上次开始 ' + (p.dayOf - 1) + ' 天。' });
+  }
+  if (p.avgLen !== null){
+    var lv = p.avgLen > 7 ? 'warn' : 'good';
+    out.push({ level: lv, text: '平均经期 ' + p.avgLen + ' 天' + (p.avgLen > 7 ? '，偏长，注意休息。' : '，正常范围。') });
+  }
+  if (p.avgCycle !== null){
+    var cv = (p.avgCycle < 21 || p.avgCycle > 35) ? 'warn' : 'good';
+    out.push({ level: cv, text: '平均周期 ' + p.avgCycle + ' 天（按 ' + p.gaps.length + ' 次间隔算）' +
+      (cv === 'warn' ? '，偏' + (p.avgCycle < 21 ? '短' : '长') + '，建议留意。' : '，规律。') });
+    if (p.cycleMax - p.cycleMin > 7){
+      out.push({ level: 'warn', text: '周期在 ' + p.cycleMin + '~' + p.cycleMax + ' 天之间波动，超过 7 天，压力大或作息乱时常见。' });
+    }
+  }
+  if (p.next){
+    out.push({ level: 'info', text: '预计下次 ' + p.next.slice(5) + '，' +
+      (p.toNext >= 0 ? '还有 ' + p.toNext + ' 天。' : '已经过了 ' + (-p.toNext) + ' 天。') });
+  }
+  return out;
+}
 /* LOGIC-END */
 
 /* ================= 界面 ================= */
@@ -1729,12 +1934,12 @@ var state = {
   revDate: null, editDate: null, editId: null, editKind: null, editing: null,
   ai: null, aiReviews: {}, aiBusy: false,
   photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true,
-  customFoods: null, mealFoods: []
+  customFoods: null, mealFoods: [], priv: false
 };
 var LS_ITEMS = 'sleepstat.items.v2', LS_TOMBS = 'sleepstat.tombs.v2',
     LS_CFG = 'sleepstat.cfg.v2', LS_REC_V1 = 'sleepstat.records.v1', LS_CFG_V1 = 'sleepstat.cfg.v1',
     LS_AI = 'sleepstat.ai.v1', LS_AI_REV = 'sleepstat.ai.reviews.v1',
-    LS_FOODS = 'sleepstat.foods.v1';
+    LS_FOODS = 'sleepstat.foods.v1', LS_PRIV = 'sleepstat.priv.v1';
 
 function $(id){ return document.getElementById(id); }
 
@@ -1809,6 +2014,7 @@ function load(){
     if (cfg && cfg.target) state.target = cfg.target;
     if (cfg && cfg.targetKg) state.targetKg = cfg.targetKg;
   } catch (e) {}
+  try { state.priv = localStorage.getItem(LS_PRIV) === '1'; } catch (e) {}
   state.records = recordsFromItems(state.items);
   if (migrated) persistLocal();
 }
@@ -1857,9 +2063,11 @@ function syncNow(quiet){
   SYNC.busy = true;
   SYNC.mode = 'busy';
   renderSyncDot();
+  // 「爱」板块（亲密记录 / 她的周期）属于隐私数据：同步时一律不发出去
+  var share = syncSafeItems(state.items);
   var body = JSON.stringify({
     target: state.target,
-    items: state.items,
+    items: share,
     tombs: state.tombs,
     since: SYNC.lastOk || 0
   });
@@ -1979,16 +2187,18 @@ function render(){
   $('tabWeight').hidden = state.tab !== 'weight';
   $('tabReview').hidden = state.tab !== 'review';
   $('tabPhoto').hidden = state.tab !== 'photo';
+  $('tabLove').hidden = state.tab !== 'love';
   Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){
     b.classList.toggle('on', b.dataset.tab === state.tab);
   });
   $('btnAdd').textContent = '＋ ' + ({ sleep: '睡', ex: '练', meal: '吃', weight: '体重',
-    photo: '拍照', review: '记录' })[state.tab];
+    photo: '拍照', love: '爱', review: '记录' })[state.tab];
   if (state.tab === 'sleep') renderSleep();
   else if (state.tab === 'ex') renderEx();
   else if (state.tab === 'meal') renderMeal();
   else if (state.tab === 'weight') renderWeight();
   else if (state.tab === 'photo') renderPhotos();
+  else if (state.tab === 'love') renderLove();
   else renderReview();
   renderSyncDot();
 }
@@ -2285,6 +2495,196 @@ function renderMealList(s){
     });
   });
   $('listMeal').innerHTML = html;
+}
+
+/* ---------- 爱：界面 ---------- */
+function renderLove(){
+  var today = todayIso();
+  var s = loveStats(state.items, state.days, today);
+  var p = periodStats(state.items, today);
+  var empty = !s.has;
+  $('kpisLove').innerHTML = [
+    kpi('这个月', s.monthN ? s.monthN + ' 次' : '—', s.monthN ? s.monthDays + ' 天有记录' : '还没记录',
+      empty ? '' : 'accent'),
+    kpi('上个月', s.prevN ? s.prevN + ' 次' : '—', '对照一下', ''),
+    kpi('近 ' + s.days + ' 天', s.total ? s.total + ' 次' : '—', s.dayCount + ' 天有记录', ''),
+    kpi('平均每周', s.total ? round1(s.avgPerWeek) + ' 次' : '—', '按窗口摊', ''),
+    kpi('最近一次', s.last ? s.last.date.slice(5) : '—',
+      s.daysSince === null ? '还没记录' : (s.daysSince === 0 ? '就是今天' : s.daysSince + ' 天前'), ''),
+    kpi('连续记录', s.streak ? s.streak + ' 天' : '—', '每天都记', '')
+  ].join('');
+  drawLove(s);
+  renderIns($('insLove'), buildLoveInsights(s));
+  renderLoveList(s);
+
+  $('cycTop').innerHTML = [
+    kpi('现在', p.ongoing ? '第 ' + p.dayOf + ' 天' : (p.has ? '不在经期' : '—'),
+      p.ongoing ? p.ongoing.start.slice(5) + ' 开始' : (p.has ? '距上次 ' + (p.dayOf - 1) + ' 天' : '还没记录'),
+      p.ongoing ? 'warn' : ''),
+    kpi('上次经期', p.last && p.last.len ? p.last.len + ' 天' : (p.ongoing ? '进行中' : '—'),
+      p.last ? p.last.start.slice(5) + ' 开始' : '还没记录', ''),
+    kpi('平均周期', p.avgCycle ? p.avgCycle + ' 天' : '—',
+      p.gaps.length ? '按 ' + p.gaps.length + ' 次间隔' : '多记两次才准', p.avgCycle ? 'accent' : ''),
+    kpi('预计下次', p.next ? p.next.slice(5) : '—',
+      p.toNext === null ? '记两次以上才算得出来' :
+        (p.toNext >= 0 ? '还有 ' + p.toNext + ' 天' : '已过 ' + (-p.toNext) + ' 天'), '')
+  ].join('');
+  renderIns($('insCycle'), buildCycleInsights(p));
+  renderCycles(p);
+  applyPriv();
+}
+
+function applyPriv(){
+  var on = !!state.priv;
+  ['loveBody', 'cycBody', 'insLoveWrap', 'listLoveWrap'].forEach(function(id){
+    var el = $(id);
+    if (el) el.classList.toggle('blur', on);
+  });
+  var b = $('btnPriv');
+  if (b) b.textContent = on ? '显示' : '隐藏';
+}
+
+function drawLove(s){
+  var W = 360, H = 150, padL = 26, padR = 8, padT = 12, padB = 20;
+  var days = s.filled;
+  if (!s.total){
+    $('chartLove').innerHTML = '<text x="180" y="70" class="axis" text-anchor="middle">暂无数据</text>';
+    return;
+  }
+  var maxV = 2;
+  days.forEach(function(d){ if (d.n > maxV) maxV = d.n; });
+  if (maxV < 3) maxV = 3;
+  var bw = (W - padL - padR) / days.length;
+  var y = function(v){ return padT + (1 - v / maxV) * (H - padT - padB); };
+  var parts = ['<defs><linearGradient id="glove" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#ff7aa8" stop-opacity=".95"/>' +
+    '<stop offset="100%" stop-color="#c94f78" stop-opacity=".85"/></linearGradient></defs>'];
+  for (var v = 0; v <= maxV; v++){
+    parts.push('<line x1="' + padL + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y(v).toFixed(1) + '" class="gline"/>');
+    parts.push('<text x="' + (padL - 4) + '" y="' + (y(v) + 3).toFixed(1) + '" class="axis" text-anchor="end">' + v + '</text>');
+  }
+  days.forEach(function(d, i){
+    if (!d.n) return;
+    var h = (H - padT - padB) * (d.n / maxV);
+    var x = padL + i * bw + bw * 0.18, w = Math.max(1.5, bw * 0.64);
+    parts.push('<rect x="' + x.toFixed(1) + '" y="' + y(d.n).toFixed(1) + '" width="' + w.toFixed(1) +
+      '" height="' + h.toFixed(1) + '" rx="1.5" fill="url(#glove)"><title>' + d.date + '  ' + d.n + ' 次</title></rect>');
+  });
+  parts.push('<text x="' + padL + '" y="' + (H - 5) + '" class="axis">' + days[0].date.slice(5) + '</text>');
+  parts.push('<text x="' + (W - padR) + '" y="' + (H - 5) + '" class="axis" text-anchor="end">' + days[days.length - 1].date.slice(5) + '</text>');
+  parts.push('<text x="' + (padL + 2) + '" y="' + (padT + 8) + '" class="axis">次 / 天</text>');
+  $('chartLove').innerHTML = parts.join('');
+}
+
+function renderLoveList(s){
+  if (!s.entries.length){
+    $('listLove').innerHTML = '<div class="muted">还没有记录。点下面的「＋ 爱」记一次。</div>';
+    return;
+  }
+  $('listLove').innerHTML = s.entries.slice(0, 120).map(function(e){
+    return '<div class="row" data-id="' + e.id + '">' +
+      '<div class="d">' + e.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(e.date)) + '</div>' +
+      '<div class="t">' + (e.note ? '<span class="x">' + esc(e.note) + '</span>' : '') + '</div>' +
+      '<div class="m">' + (e.count || 1) + ' 次</div></div>';
+  }).join('');
+}
+
+function renderCycles(p){
+  if (!p.cycles.length){
+    $('listCycles').innerHTML = '<div class="muted">还没有月经记录。点「＋ 记月经」选「来的日子」。</div>';
+    return;
+  }
+  $('listCycles').innerHTML = p.cycles.slice().reverse().slice(0, 36).map(function(c){
+    var tail = c.ongoing ? '进行中' : (c.len ? c.len + ' 天' : '未填结束');
+    return '<div class="row" data-id="' + c.id + '">' +
+      '<div class="d w">' + c.start.slice(5) + (c.end ? '–' + c.end.slice(5) : ' 起') + '</div>' +
+      '<div class="t">' + (c.note ? '<span class="x">' + esc(c.note) + '</span>' : '') + '</div>' +
+      '<div class="m">' + tail + '</div></div>';
+  }).join('');
+}
+
+function findLoveItem(id){
+  return state.items.filter(function(x){ return x.id === id; })[0] || null;
+}
+
+function openLove(id){
+  state.editId = id || null;
+  var it = id ? findLoveItem(id) : null;
+  $('lvTitle').textContent = it ? '修改这一天' : '记录一次';
+  $('lvDate').value = it ? it.date : todayIso();
+  $('lvCount').value = it ? String(it.count || 1) : '1';
+  $('lvNote').value = it && it.note ? it.note : '';
+  $('btnDelLv').style.display = it ? 'block' : 'none';
+  $('dlgLove').showModal();
+}
+
+function saveLove(){
+  var date = $('lvDate').value;
+  if (!date){ toast('先选日期'); return; }
+  var n = Math.round(numOrNull($('lvCount').value) || 1);
+  if (n < 1 || n > 9){ toast('次数填 1 到 9'); return; }
+  var id = 'intimacy:' + date;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.items.push({ id: id, kind: 'intimacy', date: date, count: n,
+    note: $('lvNote').value.trim(), updated: nowIso() });
+  state.editId = null;
+  save(); render();
+  $('dlgLove').close();
+  toast('已记录 ' + date.slice(5) + ' · ' + n + ' 次');
+}
+
+function deleteLove(){
+  if (!state.editId) return;
+  if (!confirm('删除这条记录？')) return;
+  var id = state.editId;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.tombs[id] = nowIso();
+  state.editId = null;
+  save(); render();
+  $('dlgLove').close();
+  toast('已删除');
+}
+
+function findPeriodItem(id){
+  return state.items.filter(function(x){ return x.id === id; })[0] || null;
+}
+
+function openPeriod(id){
+  state.editId = id || null;
+  var it = id ? findPeriodItem(id) : null;
+  $('pdTitle').textContent = it ? '修改这一次' : '记月经';
+  $('pdStart').value = it ? it.start : (periodStats(state.items, todayIso()).ongoing ? todayIso() : todayIso());
+  $('pdEnd').value = it && it.end ? it.end : '';
+  $('pdNote').value = it && it.note ? it.note : '';
+  $('btnDelPd').style.display = it ? 'block' : 'none';
+  $('dlgPeriod').showModal();
+}
+
+function savePeriod(){
+  var start = $('pdStart').value;
+  if (!start){ toast('先选来的日子'); return; }
+  var end = $('pdEnd').value;
+  if (end && end < start){ toast('走的日子不能早于来的日子'); return; }
+  var id = 'period:' + start;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.items.push({ id: id, kind: 'period', start: start, end: end,
+    note: $('pdNote').value.trim(), updated: nowIso() });
+  state.editId = null;
+  save(); render();
+  $('dlgPeriod').close();
+  toast(end ? '已记录：' + start.slice(5) + ' ~ ' + end.slice(5) : '已记录开始日期，走了之后可以回来补');
+}
+
+function deletePeriod(){
+  if (!state.editId) return;
+  if (!confirm('删除这次月经记录？')) return;
+  var id = state.editId;
+  state.items = state.items.filter(function(x){ return x.id !== id; });
+  state.tombs[id] = nowIso();
+  state.editId = null;
+  save(); render();
+  $('dlgPeriod').close();
+  toast('已删除');
 }
 
 function renderIns(el, list){
@@ -2814,6 +3214,25 @@ function exportCsv(){
     toast('已导出 ' + exs.length + ' 条运动记录');
     return;
   }
+  if (tab === 'love'){
+    var ils = itemsOf(state.items, 'intimacy').slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    var pds = itemsOf(state.items, 'period').slice().sort(function(a, b){ return a.start < b.start ? -1 : 1; });
+    if (!ils.length && !pds.length){ toast('还没有记录'); return; }
+    download('亲密记录-' + todayIso() + '.csv',
+      csvText([['日期', '次数', '备注']].concat(ils.map(function(it){ return [it.date, it.count || 1, it.note]; }))),
+      'text/csv;charset=utf-8');
+    if (pds.length){
+      setTimeout(function(){
+        download('月经记录-' + todayIso() + '.csv',
+          csvText([['来的日子', '走的日子', '天数', '备注']].concat(pds.map(function(it){
+            return [it.start, it.end || '', it.end ? dayDiff(it.start, it.end) + 1 : '', it.note];
+          }))), 'text/csv;charset=utf-8');
+      }, 400);
+    }
+    toast('已导出 ' + ils.length + ' 条亲密 + ' + pds.length + ' 条月经记录');
+    return;
+  }
+
   if (tab === 'meal'){
     var meals = itemsOf(state.items, 'meal').slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
     if (!meals.length){ toast('还没有饮食记录'); return; }
@@ -2958,8 +3377,22 @@ function demoData(){
   });
   if (!state.targetKg) state.targetKg = 70;
 
+  // 亲密示例：最近一个月 5 次
+  [[-24, 1], [-17, 2], [-11, 1], [-6, 1], [-2, 1]].forEach(function(pair){
+    var d = addDays(base, pair[0]);
+    state.items.push({ id: 'intimacy:' + d, kind: 'intimacy', date: d, count: pair[1],
+      note: '示例', updated: nowIso() });
+  });
+
+  // 月经示例：三个完整周期 + 一个进行中
+  [[-78, -73], [-52, -47], [-26, -21], [-3, null]].forEach(function(pair){
+    var st = addDays(base, pair[0]);
+    state.items.push({ id: 'period:' + st, kind: 'period', start: st,
+      end: pair[1] === null ? '' : addDays(base, pair[1]), note: '示例', updated: nowIso() });
+  });
+
   save(); render();
-  toast('已载入示例：6 天睡眠、4 次运动、3 天饮食、30 天体重');
+  toast('已载入示例：6 天睡眠、4 次运动、3 天饮食、30 天体重、5 次亲密、4 次月经');
 }
 
 /* ---------- 每日点评 ---------- */
@@ -3505,8 +3938,30 @@ function bind(){
     else if (state.tab === 'weight') openWeight(null);
     else if (state.tab === 'review') openAdd(state.revDate || null);
     else if (state.tab === 'photo') openCamera(todayIso());
+    else if (state.tab === 'love') openLove(null);
     else openAdd(null);
   };
+  $('btnPriv').onclick = function(){
+    state.priv = !state.priv;
+    try { localStorage.setItem(LS_PRIV, state.priv ? '1' : '0'); } catch (e) {}
+    applyPriv();
+  };
+  $('btnAddPeriod').onclick = function(){ openPeriod(null); };
+  $('btnCancelLv').onclick = function(){ $('dlgLove').close(); };
+  $('btnSaveLv').onclick = saveLove;
+  $('btnDelLv').onclick = deleteLove;
+  $('btnCancelPd').onclick = function(){ $('dlgPeriod').close(); };
+  $('btnSavePd').onclick = savePeriod;
+  $('btnDelPd').onclick = deletePeriod;
+  $('listLove').onclick = function(e){
+    var r = e.target.closest('.row');
+    if (r) openLove(r.dataset.id);
+  };
+  $('listCycles').onclick = function(e){
+    var r = e.target.closest('.row');
+    if (r) openPeriod(r.dataset.id);
+  };
+
   $('revPrev').onclick = function(){
     state.revDate = addDays(ensureRevDate(), -1);
     renderReview();
