@@ -170,6 +170,14 @@ section[hidden]{display:none}
   .ai-status{color:var(--dim);min-height:18px}
   .ai-status.err{color:#ff8b96}
 .fadd{display:grid;grid-template-columns:1fr 80px 54px;gap:8px;align-items:end;margin-top:6px}
+.aiadd{margin:10px 0 4px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}
+.aiadd>label{font-size:12px;color:var(--dim);display:block;margin-bottom:6px}
+.aiadd textarea{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:inherit;font-size:14px;line-height:1.45;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.aiadd-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.aiadd-row button{flex:0 0 auto;margin:0}
+.aiadd-hint{display:block;flex:1 1 100%;font-size:12.5px;line-height:1.45;color:var(--dim);margin-top:2px}
+.aiadd-hint:empty{display:none}
+.aiadd-hint.err{color:var(--bad)}
 .fadd label{font-size:12px}
 .fhint{font-size:11px;color:var(--dim);margin-top:6px;min-height:14px;line-height:1.4}
 .foods{display:flex;flex-direction:column;gap:6px;margin-top:8px}
@@ -455,6 +463,12 @@ section[hidden]{display:none}
     <label>接口地址
       <input id="aiBase" autocomplete="off" spellcheck="false" placeholder="https://api.deepseek.com">
     </label>
+    <label>图片识别模型（拍照认食物用）
+      <input id="aiVision" list="aiVisions" autocomplete="off" spellcheck="false" placeholder="deepseek-flash">
+      <datalist id="aiVisions">
+        <option value="deepseek-flash"></option>
+      </datalist>
+    </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px">
       <input id="aiShow" type="checkbox" style="width:auto;flex:0 0 auto"> 显示 Key
     </label>
@@ -631,8 +645,19 @@ section[hidden]{display:none}
             <option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option>
           </select></div>
       </div>
+      <div class="aiadd">
+        <label>一句话记一餐（自动拆食物、算热量）</label>
+        <textarea id="mSay" rows="2" placeholder="例：中午吃了一碗牛肉面，加两个鸡蛋，还有一杯可乐"></textarea>
+        <div class="aiadd-row">
+          <button type="button" id="btnSayMeal" class="primary">AI 算这餐</button>
+          <button type="button" id="btnPhotoMeal">拍照识别</button>
+          <span class="aiadd-hint" id="mAiHint"></span>
+        </div>
+        <input type="file" id="mPhotoFile" accept="image/*" capture="environment" hidden>
+      </div>
+      <div class="fhint" id="mHint"></div>
       <div class="fadd">
-        <div><label>食物</label><input id="mFood" autocomplete="off" placeholder="例：米饭"></div>
+        <div><label>食物（也可以手动加一栏）</label><input id="mFood" autocomplete="off" placeholder="例：米饭"></div>
         <div><label>克数</label><input id="mGram" inputmode="decimal" placeholder="例 150"></div>
         <div><label>&nbsp;</label><button type="button" id="btnAddFood" class="primary">＋</button></div>
       </div>
@@ -640,7 +665,7 @@ section[hidden]{display:none}
       <div class="foods" id="mFoods"></div>
       <div class="ftotal">这一餐合计 <b id="mSum">0</b> 千卡</div>
       <div><label>备注（可选）</label><input id="mNote" placeholder="在外吃、聚餐……"></div>
-      <div class="hint">填食物名和克数，热量自动算；三餐加起来就是当天总热量。库里没有的食物会问你一次每 100 g 的热量，记住后下次直接匹配。</div>
+      <div class="hint">三种用法都行：① 用一句话说这餐吃了什么，AI 拆成明细；② 拍张照让 AI 认；③ 手动一行一行加。热量都会按本机食物库再算一遍，三餐合计就是当天总热量。</div>
     </div>
     <div class="dlg-f">
       <button type="button" id="btnCancelMeal">取消</button>
@@ -1520,7 +1545,7 @@ function mergeItemsServer(local, remote){
 function scoreClamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function fmtShortMin(m){ return m < 60 ? m + ' 分钟' : fmtHM(m); }
 
-var AI_DEFAULT = { base: 'https://api.deepseek.com', model: 'deepseek-chat' };
+var AI_DEFAULT = { base: 'https://api.deepseek.com', model: 'deepseek-chat', visionModel: 'deepseek-flash' };
 
 /* 把某一天 + 最近 7 天压缩成给模型看的事实表（纯函数，便于测试） */
 function aiDayFacts(items, date, cfg){
@@ -1690,37 +1715,125 @@ function photoComparePair(list){
 /* ---------- 食物库（每 100 g 千卡，常用近似值，可自行添加） ---------- */
 var FOOD_RAW = [
   ['米饭',116,'主食'],['糙米饭',112,'主食'],['杂粮饭',115,'主食'],['白粥',46,'主食'],
-  ['小米粥',46,'主食'],['馒头',223,'主食'],['花卷',217,'主食'],['面条',110,'主食'],
-  ['米粉',97,'主食'],['全麦面包',246,'主食'],['白面包',265,'主食'],['燕麦片',377,'主食'],
-  ['玉米',112,'主食'],['红薯',86,'主食'],['紫薯',82,'主食'],['土豆',77,'主食'],
-  ['山药',57,'主食'],['饺子',240,'主食'],['包子',227,'主食'],['油条',388,'主食'],
-  ['手抓饼',330,'主食'],['煎饼',333,'主食'],['粽子',195,'主食'],
-  ['鸡蛋',144,'肉蛋'],['鸡蛋白',60,'肉蛋'],['鸡蛋黄',328,'肉蛋'],['鸡胸肉',133,'肉蛋'],
-  ['鸡腿',181,'肉蛋'],['牛肉',106,'肉蛋'],['牛腩',332,'肉蛋'],['猪里脊',155,'肉蛋'],
-  ['五花肉',508,'肉蛋'],['排骨',278,'肉蛋'],['羊肉',203,'肉蛋'],['鲈鱼',105,'肉蛋'],
-  ['三文鱼',139,'肉蛋'],['带鱼',127,'肉蛋'],['虾',93,'肉蛋'],['螃蟹',103,'肉蛋'],
-  ['牛奶',54,'奶豆'],['脱脂牛奶',33,'奶豆'],['酸奶',72,'奶豆'],['希腊酸奶',59,'奶豆'],
-  ['奶酪',328,'奶豆'],['豆腐',84,'奶豆'],['豆腐干',140,'奶豆'],['豆浆',31,'奶豆'],
-  ['腐竹',459,'奶豆'],
-  ['西兰花',36,'蔬菜'],['白菜',17,'蔬菜'],['生菜',15,'蔬菜'],['菠菜',28,'蔬菜'],
-  ['番茄',15,'蔬菜'],['黄瓜',16,'蔬菜'],['胡萝卜',39,'蔬菜'],['青椒',22,'蔬菜'],
-  ['茄子',21,'蔬菜'],['豆角',30,'蔬菜'],['蘑菇',20,'蔬菜'],['南瓜',22,'蔬菜'],
-  ['莲藕',73,'蔬菜'],['洋葱',40,'蔬菜'],['芹菜',17,'蔬菜'],['海带',13,'蔬菜'],
-  ['木耳',265,'蔬菜'],
-  ['香蕉',93,'水果'],['苹果',53,'水果'],['橙子',48,'水果'],['西瓜',31,'水果'],
-  ['葡萄',44,'水果'],['猕猴桃',61,'水果'],['梨',51,'水果'],['蓝莓',57,'水果'],
-  ['草莓',32,'水果'],['芒果',60,'水果'],['桃',51,'水果'],['火龙果',55,'水果'],
-  ['花生',574,'坚果'],['核桃',646,'坚果'],['杏仁',578,'坚果'],['瓜子',606,'坚果'],
-  ['腰果',559,'坚果'],['混合坚果',600,'坚果'],['薯片',536,'坚果'],['巧克力',546,'坚果'],
-  ['饼干',435,'坚果'],['蛋糕',348,'坚果'],['冰淇淋',127,'坚果'],
-  ['可乐',43,'饮品'],['无糖可乐',0,'饮品'],['奶茶',60,'饮品'],['拿铁',55,'饮品'],
-  ['美式咖啡',2,'饮品'],['橙汁',45,'饮品'],['啤酒',43,'饮品'],['白酒',298,'饮品'],
-  ['食用油',899,'调味'],['白糖',400,'调味'],['蜂蜜',321,'调味'],['沙拉酱',724,'调味'],
-  ['番茄酱',82,'调味'],['辣酱',500,'调味'],
-  ['炒青菜',60,'菜品'],['番茄炒蛋',90,'菜品'],['宫保鸡丁',180,'菜品'],['红烧肉',470,'菜品'],
-  ['鱼香肉丝',190,'菜品'],['麻婆豆腐',120,'菜品'],['清炒西兰花',45,'菜品'],['白切鸡',190,'菜品'],
-  ['蛋炒饭',186,'菜品'],['拉面',130,'菜品'],['麻辣烫',90,'菜品'],['火锅',120,'菜品'],
-  ['蔬菜沙拉',30,'菜品']
+  ['小米粥',46,'主食'],['皮蛋瘦肉粥',60,'主食'],['八宝粥',80,'主食'],['南瓜粥',40,'主食'],
+  ['红豆粥',70,'主食'],['绿豆粥',60,'主食'],['馒头',223,'主食'],['全麦馒头',215,'主食'],
+  ['花卷',217,'主食'],['面条',110,'主食'],['挂面',348,'主食'],['刀削面',130,'主食'],
+  ['手擀面',120,'主食'],['米粉',97,'主食'],['河粉',135,'主食'],['粉丝',335,'主食'],
+  ['米线',120,'主食'],['通心粉',150,'主食'],['意大利面',158,'主食'],['全麦面包',246,'主食'],
+  ['白面包',265,'主食'],['吐司',280,'主食'],['法棍',270,'主食'],['贝果',257,'主食'],
+  ['牛角包',406,'主食'],['燕麦片',377,'主食'],['燕麦粥',40,'主食'],['玉米',112,'主食'],
+  ['玉米棒',106,'主食'],['糯玉米',172,'主食'],['红薯',86,'主食'],['紫薯',82,'主食'],
+  ['土豆',77,'主食'],['山药',57,'主食'],['芋头',56,'主食'],['南瓜',22,'主食'],
+  ['饺子',240,'主食'],['水饺',240,'主食'],['煎饺',280,'主食'],['包子',227,'主食'],
+  ['肉包',230,'主食'],['素包',180,'主食'],['小笼包',225,'主食'],['烧麦',238,'主食'],
+  ['馄饨',190,'主食'],['油条',388,'主食'],['手抓饼',330,'主食'],['葱油饼',347,'主食'],
+  ['煎饼',333,'主食'],['春卷',463,'主食'],['粽子',195,'主食'],['年糕',154,'主食'],
+  ['汤圆',311,'主食'],['月饼',405,'主食'],['油饼',399,'主食'],['麻花',524,'主食'],
+  ['锅贴',270,'主食'],['披萨',266,'主食'],['汉堡',250,'主食'],['牛肉汉堡',280,'主食'],
+  ['鸡腿堡',240,'主食'],['薯条',312,'主食'],['蛋炒饭',186,'主食'],['扬州炒饭',190,'主食'],
+  ['炒面',180,'主食'],['炒河粉',190,'主食'],['炒米粉',170,'主食'],['炸酱面',170,'主食'],
+  ['阳春面',110,'主食'],['拉面',130,'主食'],['牛肉面',135,'主食'],['热干面',200,'主食'],
+  ['担担面',180,'主食'],['米粥',46,'主食'],['白米饭',116,'主食'],['鸡蛋',144,'肉蛋'],
+  ['水煮蛋',144,'肉蛋'],['煎蛋',196,'肉蛋'],['鸡蛋白',60,'肉蛋'],['鸡蛋黄',328,'肉蛋'],
+  ['鹌鹑蛋',160,'肉蛋'],['鸭蛋',180,'肉蛋'],['咸鸭蛋',190,'肉蛋'],['鸡胸肉',133,'肉蛋'],
+  ['鸡腿',181,'肉蛋'],['鸡翅',202,'肉蛋'],['鸡爪',254,'肉蛋'],['炸鸡',279,'肉蛋'],
+  ['烤鸡',215,'肉蛋'],['白切鸡',190,'肉蛋'],['鸭肉',240,'肉蛋'],['烤鸭',436,'肉蛋'],
+  ['鹅肉',251,'肉蛋'],['牛肉',106,'肉蛋'],['牛腱',98,'肉蛋'],['牛腩',332,'肉蛋'],
+  ['肥牛',250,'肉蛋'],['牛肉干',307,'肉蛋'],['牛排',230,'肉蛋'],['猪肉',143,'肉蛋'],
+  ['猪里脊',155,'肉蛋'],['五花肉',508,'肉蛋'],['排骨',278,'肉蛋'],['猪蹄',260,'肉蛋'],
+  ['猪肝',129,'肉蛋'],['猪血',55,'肉蛋'],['猪大肠',196,'肉蛋'],['腊肠',508,'肉蛋'],
+  ['香肠',346,'肉蛋'],['培根',181,'肉蛋'],['火腿肠',212,'肉蛋'],['午餐肉',229,'肉蛋'],
+  ['肉松',396,'肉蛋'],['羊肉',203,'肉蛋'],['羊排',203,'肉蛋'],['兔肉',102,'肉蛋'],
+  ['肉丸',200,'肉蛋'],['鱼丸',100,'肉蛋'],['牛肉丸',130,'肉蛋'],['卤蛋',150,'肉蛋'],
+  ['鸡胗',118,'肉蛋'],['鸡肝',121,'肉蛋'],['鸭血',108,'肉蛋'],['鲈鱼',105,'水产'],
+  ['草鱼',113,'水产'],['鲤鱼',109,'水产'],['鲫鱼',108,'水产'],['带鱼',127,'水产'],
+  ['三文鱼',139,'水产'],['金枪鱼',116,'水产'],['鳕鱼',88,'水产'],['黄花鱼',97,'水产'],
+  ['鲅鱼',121,'水产'],['罗非鱼',98,'水产'],['黑鱼',85,'水产'],['虾',93,'水产'],
+  ['虾仁',93,'水产'],['基围虾',101,'水产'],['小龙虾',93,'水产'],['螃蟹',103,'水产'],
+  ['蟹肉',97,'水产'],['鱿鱼',75,'水产'],['章鱼',82,'水产'],['蛤蜊',62,'水产'],
+  ['生蚝',73,'水产'],['扇贝',60,'水产'],['海参',78,'水产'],['海蜇',33,'水产'],
+  ['鱼豆腐',140,'水产'],['鱼片',110,'水产'],['泥鳅',96,'水产'],['鳗鱼',181,'水产'],
+  ['黄鳝',89,'水产'],['牛奶',54,'奶豆'],['脱脂牛奶',33,'奶豆'],['低脂牛奶',43,'奶豆'],
+  ['全脂牛奶',65,'奶豆'],['羊奶',59,'奶豆'],['酸奶',72,'奶豆'],['无糖酸奶',60,'奶豆'],
+  ['希腊酸奶',59,'奶豆'],['风味酸奶',90,'奶豆'],['奶酪',328,'奶豆'],['芝士片',300,'奶豆'],
+  ['黄油',888,'奶豆'],['奶油',340,'奶豆'],['炼乳',321,'奶豆'],['豆腐',84,'奶豆'],
+  ['嫩豆腐',57,'奶豆'],['老豆腐',98,'奶豆'],['豆腐干',140,'奶豆'],['豆皮',409,'奶豆'],
+  ['豆腐脑',15,'奶豆'],['腐竹',459,'奶豆'],['豆浆',31,'奶豆'],['无糖豆浆',16,'奶豆'],
+  ['豆奶',31,'奶豆'],['黄豆',390,'奶豆'],['黑豆',401,'奶豆'],['红豆',324,'奶豆'],
+  ['绿豆',329,'奶豆'],['鹰嘴豆',364,'奶豆'],['豌豆',81,'奶豆'],['红豆沙',240,'奶豆'],
+  ['绿豆沙',250,'奶豆'],['豆腐乳',133,'奶豆'],['素鸡',192,'奶豆'],['千张',262,'奶豆'],
+  ['西兰花',36,'蔬菜'],['花菜',24,'蔬菜'],['白菜',17,'蔬菜'],['小白菜',15,'蔬菜'],
+  ['娃娃菜',13,'蔬菜'],['卷心菜',24,'蔬菜'],['紫甘蓝',25,'蔬菜'],['生菜',15,'蔬菜'],
+  ['菠菜',28,'蔬菜'],['油菜',23,'蔬菜'],['空心菜',20,'蔬菜'],['芥蓝',24,'蔬菜'],
+  ['茼蒿',21,'蔬菜'],['韭菜',26,'蔬菜'],['芹菜',17,'蔬菜'],['香菜',33,'蔬菜'],
+  ['番茄',15,'蔬菜'],['圣女果',22,'蔬菜'],['黄瓜',16,'蔬菜'],['胡萝卜',39,'蔬菜'],
+  ['白萝卜',21,'蔬菜'],['青椒',22,'蔬菜'],['彩椒',26,'蔬菜'],['茄子',21,'蔬菜'],
+  ['豆角',30,'蔬菜'],['四季豆',28,'蔬菜'],['荷兰豆',30,'蔬菜'],['蘑菇',20,'蔬菜'],
+  ['香菇',26,'蔬菜'],['金针菇',32,'蔬菜'],['杏鲍菇',35,'蔬菜'],['平菇',24,'蔬菜'],
+  ['木耳',265,'蔬菜'],['银耳',261,'蔬菜'],['海带',13,'蔬菜'],['紫菜',250,'蔬菜'],
+  ['洋葱',40,'蔬菜'],['大蒜',126,'蔬菜'],['姜',46,'蔬菜'],['冬瓜',12,'蔬菜'],
+  ['丝瓜',20,'蔬菜'],['苦瓜',22,'蔬菜'],['西葫芦',19,'蔬菜'],['芦笋',22,'蔬菜'],
+  ['秋葵',25,'蔬菜'],['莲藕',73,'蔬菜'],['竹笋',23,'蔬菜'],['豆芽',18,'蔬菜'],
+  ['豌豆苗',34,'蔬菜'],['玉米笋',27,'蔬菜'],['山药豆',90,'蔬菜'],['苋菜',25,'蔬菜'],
+  ['莴笋',15,'蔬菜'],['荠菜',31,'蔬菜'],['萝卜干',60,'蔬菜'],['酸菜',14,'蔬菜'],
+  ['榨菜',29,'蔬菜'],['腌黄瓜',20,'蔬菜'],['雪菜',18,'蔬菜'],['豆苗',34,'蔬菜'],
+  ['香蕉',93,'水果'],['苹果',53,'水果'],['青苹果',49,'水果'],['橙子',48,'水果'],
+  ['血橙',50,'水果'],['西瓜',31,'水果'],['葡萄',44,'水果'],['巨峰葡萄',50,'水果'],
+  ['提子',53,'水果'],['猕猴桃',61,'水果'],['梨',51,'水果'],['雪梨',51,'水果'],
+  ['蓝莓',57,'水果'],['草莓',32,'水果'],['芒果',60,'水果'],['桃',51,'水果'],
+  ['油桃',44,'水果'],['火龙果',55,'水果'],['菠萝',44,'水果'],['柚子',42,'水果'],
+  ['西柚',33,'水果'],['柠檬',37,'水果'],['石榴',72,'水果'],['樱桃',46,'水果'],
+  ['车厘子',63,'水果'],['荔枝',71,'水果'],['龙眼',71,'水果'],['山竹',72,'水果'],
+  ['榴莲',147,'水果'],['木瓜',30,'水果'],['哈密瓜',34,'水果'],['香瓜',26,'水果'],
+  ['柿子',71,'水果'],['鲜枣',125,'水果'],['冬枣',105,'水果'],['百香果',97,'水果'],
+  ['牛油果',161,'水果'],['椰子',241,'水果'],['杨梅',30,'水果'],['枇杷',41,'水果'],
+  ['桑葚',57,'水果'],['无花果',65,'水果'],['菠萝蜜',105,'水果'],['番石榴',41,'水果'],
+  ['释迦',104,'水果'],['莲雾',34,'水果'],['杨桃',31,'水果'],['杏',38,'水果'],
+  ['花生',574,'坚果零食'],['炒花生',601,'坚果零食'],['核桃',646,'坚果零食'],['杏仁',578,'坚果零食'],
+  ['瓜子',606,'坚果零食'],['葵花籽',606,'坚果零食'],['南瓜子',566,'坚果零食'],['腰果',559,'坚果零食'],
+  ['开心果',614,'坚果零食'],['榛子',594,'坚果零食'],['松子',718,'坚果零食'],['夏威夷果',718,'坚果零食'],
+  ['巴旦木',578,'坚果零食'],['板栗',185,'坚果零食'],['糖炒栗子',214,'坚果零食'],['混合坚果',600,'坚果零食'],
+  ['葡萄干',341,'坚果零食'],['红枣',276,'坚果零食'],['蔓越莓干',308,'坚果零食'],['薯片',536,'坚果零食'],
+  ['锅巴',527,'坚果零食'],['辣条',400,'坚果零食'],['虾条',518,'坚果零食'],['爆米花',387,'坚果零食'],
+  ['海苔',177,'坚果零食'],['巧克力',546,'坚果零食'],['黑巧克力',598,'坚果零食'],['牛奶巧克力',535,'坚果零食'],
+  ['饼干',435,'坚果零食'],['苏打饼干',408,'坚果零食'],['威化饼干',500,'坚果零食'],['曲奇',546,'坚果零食'],
+  ['蛋糕',348,'坚果零食'],['奶油蛋糕',350,'坚果零食'],['蛋挞',280,'坚果零食'],['泡芙',260,'坚果零食'],
+  ['面包',280,'坚果零食'],['甜甜圈',421,'坚果零食'],['马卡龙',404,'坚果零食'],['冰淇淋',127,'坚果零食'],
+  ['雪糕',180,'坚果零食'],['布丁',120,'坚果零食'],['果冻',70,'坚果零食'],['麻薯',230,'坚果零食'],
+  ['沙琪玛',506,'坚果零食'],['可乐',43,'饮品'],['无糖可乐',0,'饮品'],['雪碧',40,'饮品'],
+  ['芬达',48,'饮品'],['果汁',45,'饮品'],['橙汁',45,'饮品'],['苹果汁',46,'饮品'],
+  ['葡萄汁',60,'饮品'],['奶茶',60,'饮品'],['珍珠奶茶',90,'饮品'],['咖啡',2,'饮品'],
+  ['美式咖啡',2,'饮品'],['拿铁',55,'饮品'],['卡布奇诺',40,'饮品'],['摩卡',70,'饮品'],
+  ['啤酒',43,'饮品'],['白酒',298,'饮品'],['红酒',85,'饮品'],['黄酒',66,'饮品'],
+  ['气泡水',0,'饮品'],['矿泉水',0,'饮品'],['运动饮料',25,'饮品'],['能量饮料',45,'饮品'],
+  ['椰汁',51,'饮品'],['乳酸菌饮料',70,'饮品'],['酸梅汤',40,'饮品'],['王老吉',40,'饮品'],
+  ['冰红茶',38,'饮品'],['绿茶饮料',30,'饮品'],['豆浆饮料',40,'饮品'],['米汤',20,'饮品'],
+  ['柠檬水',5,'饮品'],['食用油',899,'调味'],['橄榄油',899,'调味'],['花生油',899,'调味'],
+  ['菜籽油',899,'调味'],['猪油',897,'调味'],['白糖',400,'调味'],['冰糖',397,'调味'],
+  ['红糖',389,'调味'],['蜂蜜',321,'调味'],['沙拉酱',724,'调味'],['千岛酱',475,'调味'],
+  ['番茄酱',82,'调味'],['辣酱',500,'调味'],['辣椒油',900,'调味'],['酱油',63,'调味'],
+  ['醋',31,'调味'],['蚝油',114,'调味'],['芝麻酱',618,'调味'],['花生酱',600,'调味'],
+  ['豆瓣酱',178,'调味'],['味精',268,'调味'],['盐',0,'调味'],['孜然',375,'调味'],
+  ['黑胡椒',251,'调味'],['咖喱酱',150,'调味'],['火锅底料',700,'调味'],['芝麻',559,'调味'],
+  ['炒青菜',60,'菜品'],['蒜蓉西兰花',70,'菜品'],['清炒西兰花',45,'菜品'],['番茄炒蛋',90,'菜品'],
+  ['西红柿炒鸡蛋',90,'菜品'],['宫保鸡丁',180,'菜品'],['红烧肉',470,'菜品'],['鱼香肉丝',190,'菜品'],
+  ['麻婆豆腐',120,'菜品'],['回锅肉',290,'菜品'],['小炒肉',260,'菜品'],['水煮鱼',150,'菜品'],
+  ['酸菜鱼',120,'菜品'],['红烧鱼',160,'菜品'],['清蒸鱼',110,'菜品'],['可乐鸡翅',230,'菜品'],
+  ['糖醋里脊',280,'菜品'],['京酱肉丝',230,'菜品'],['地三鲜',160,'菜品'],['干锅花菜',150,'菜品'],
+  ['干煸豆角',160,'菜品'],['茄子煲',130,'菜品'],['虾仁滑蛋',120,'菜品'],['韭菜炒蛋',120,'菜品'],
+  ['青椒肉丝',200,'菜品'],['土豆丝',90,'菜品'],['酸辣土豆丝',110,'菜品'],['醋溜白菜',50,'菜品'],
+  ['手撕包菜',70,'菜品'],['干锅土豆片',150,'菜品'],['麻辣香锅',220,'菜品'],['麻辣烫',90,'菜品'],
+  ['火锅',120,'菜品'],['关东煮',80,'菜品'],['烤冷面',200,'菜品'],['黄焖鸡',160,'菜品'],
+  ['盖浇饭',170,'菜品'],['咖喱饭',160,'菜品'],['手抓饭',190,'菜品'],['寿司',150,'菜品'],
+  ['紫菜包饭',160,'菜品'],['凉皮',130,'菜品'],['肉夹馍',300,'菜品'],['煎饼果子',330,'菜品'],
+  ['生煎',260,'菜品'],['酸辣粉',130,'菜品'],['螺蛳粉',150,'菜品'],['过桥米线',130,'菜品'],
+  ['三明治',240,'菜品'],['蔬菜沙拉',30,'菜品'],['鸡胸沙拉',120,'菜品'],['水果沙拉',70,'菜品'],
+  ['皮蛋豆腐',100,'菜品'],['拍黄瓜',40,'菜品'],['凉拌木耳',90,'菜品'],['红烧茄子',150,'菜品'],
+  ['油焖大虾',180,'菜品'],['白灼虾',100,'菜品'],['蒸蛋',90,'菜品'],['鸡蛋羹',90,'菜品'],
+  ['蛋花汤',30,'菜品'],['紫菜蛋花汤',25,'菜品'],['番茄蛋汤',30,'菜品'],['排骨汤',80,'菜品'],
+  ['鸡汤',50,'菜品'],['牛肉汤',60,'菜品'],['粥',46,'菜品'],['小炒黄牛肉',230,'菜品'],
+  ['孜然羊肉',250,'菜品'],['烤串',260,'菜品'],['羊肉串',206,'菜品'],['鱿鱼丝',313,'菜品'],
+  ['皮蛋',171,'菜品'],['豆浆油条',300,'菜品'],['豆腐脑咸',20,'菜品']
 ];
 var FOODS = FOOD_RAW.map(function(r){ return { n: r[0], k: r[1], t: r[2] }; });
 
@@ -1739,7 +1852,11 @@ var FOOD_ALIAS = {
   '牛': '牛肉', '牛腱': '牛肉', '牛奶': '牛奶', '豆奶': '豆浆', '优酪乳': '酸奶',
   '虾仁': '虾', '包子': '包子', '水饺': '饺子', '薯': '红薯', '地瓜': '红薯',
   '玉米棒': '玉米', '土豆': '土豆', '马铃薯': '土豆', '西红柿': '番茄', '番茄': '番茄',
-  '青菜': '炒青菜', '生菜': '生菜', '苹果': '苹果', '香蕉': '香蕉'
+  '青菜': '炒青菜', '可乐': '可乐', '雪碧': '雪碧', '奶茶': '奶茶', '咖啡': '美式咖啡',
+  '牛排': '牛排', '鸡翅': '鸡翅', '鸡爪': '鸡爪', '鸭': '鸭肉', '鱼': '鲈鱼', '虾米': '虾仁',
+  '米饭一碗': '米饭', '面条一碗': '面条', '馒头一个': '馒头', '包子一个': '包子',
+  '薯条': '薯条', '汉堡': '汉堡', '披萨': '披萨', '寿司': '寿司', '沙拉': '蔬菜沙拉',
+  '酸奶一杯': '酸奶', '牛奶一杯': '牛奶', '豆浆一杯': '豆浆', '果汁一杯': '果汁'
 };
 
 function foodFind(name, extra){
@@ -1804,6 +1921,70 @@ function mealDayTotals(items){
 /* 隐私：同步只发这四类，亲密记录与她的周期永不出本机 */
 function syncSafeItems(items){
   return (items || []).filter(function(x){ return x.kind !== 'intimacy' && x.kind !== 'period'; });
+}
+
+/* ---------- 吃：AI 拆解（一句话 / 照片） ---------- */
+var MEAL_NAMES = ['早餐', '午餐', '晚餐', '加餐'];
+
+function buildMealMessages(text, withPhoto){
+  var sys = '你是营养师，把用户描述的一餐拆成食物明细。只输出 JSON，不要任何解释文字。'
+    + '输出格式：{"meal":"早餐|午餐|晚餐|加餐","items":[{"name":"食物名","grams":数字,"kcal100":数字}]}。'
+    + '规则：① name 用最常见的中文食物名，尽量拆细（"番茄炒蛋"而不是"家常菜"）；'
+    + '② grams 按中国常见份量估算（一碗米饭约 200g、一个鸡蛋约 50g、一杯牛奶约 250g、一个苹果约 200g）；'
+    + '③ kcal100 是每 100 克的热量千卡，按常见参考值给整数；'
+    + '④ meal 按用户说的时段判断，说不清就用 "午餐"；'
+    + '⑤ 最多 12 项，只说吃的和喝的，不要把餐具、调料瓶当成食物。';
+  var user = withPhoto
+    ? '这是我这一餐的照片，请识别里面所有能吃的东西，估算份量（克）和每 100 克热量。'
+    : '我说的是：' + String(text || '');
+  var content = withPhoto
+    ? [{ type: 'text', text: user }, { type: 'image_url', image_url: { url: withPhoto } }]
+    : user;
+  return [{ role: 'system', content: sys }, { role: 'user', content: content }];
+}
+
+function parseMealJson(raw){
+  var t = String(raw == null ? '' : raw).replace(/```[a-zA-Z]*/g, '').trim();
+  var a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  var obj;
+  try { obj = JSON.parse(t.slice(a, b + 1)); } catch (e) { return null; }
+  var list = obj && (obj.items || obj.foods || obj.list);
+  if (!list || !list.length || !list.length.toFixed) return null;
+  var items = [];
+  for (var i = 0; i < list.length && items.length < 20; i++){
+    var it = list[i] || {};
+    var name = String(it.name || it.n || it.food || '').trim();
+    if (!name) continue;
+    var g = Number(it.grams != null ? it.grams : (it.g != null ? it.g : it.weight));
+    if (!isFinite(g) || g <= 0) g = 100;
+    g = Math.min(3000, Math.max(1, Math.round(g)));
+    var k = Number(it.kcal100 != null ? it.kcal100 : (it.k100 != null ? it.k100 : it.per100));
+    if (!isFinite(k) || k < 0 || k > 950) k = null;
+    items.push({ name: name, grams: g, kcal100: k === null ? null : Math.round(k) });
+  }
+  if (!items.length) return null;
+  var meal = String(obj.meal || '').trim();
+  if (MEAL_NAMES.indexOf(meal) < 0) meal = '';
+  return { meal: meal, items: items };
+}
+
+/* 把 AI 给的名字对到本机食物库：库里有就用库里的值（口径统一），没有就用 AI 估的并顺手记进自建库 */
+function mealItemsFromAi(parsed, custom){
+  var out = [], unknown = [], pool = custom || [];
+  (parsed.items || []).forEach(function(it){
+    var hit = foodFind(it.name, pool);
+    var k = hit ? hit.k : it.kcal100;
+    if (!k || k <= 0){ unknown.push(it.name); return; }
+    if (!hit) pool.push({ n: it.name, k: k, t: 'AI' });
+    out.push({
+      n: hit ? hit.n : it.name,
+      g: it.grams,
+      k: k,
+      kcal: foodKcalOf(k, it.grams)
+    });
+  });
+  return { foods: out, unknown: unknown };
 }
 
 /* ---------- 爱：亲密记录 + 她的周期 ---------- */
@@ -1932,7 +2113,7 @@ function buildCycleInsights(p){
 var state = {
   items: [], records: [], tombs: {}, target: 480, targetKg: null, days: 30, tab: 'sleep',
   revDate: null, editDate: null, editId: null, editKind: null, editing: null,
-  ai: null, aiReviews: {}, aiBusy: false,
+  ai: null, aiReviews: {}, aiBusy: false, mealBusy: false,
   photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true,
   customFoods: null, mealFoods: [], priv: false
 };
@@ -2999,6 +3180,8 @@ function openMeal(id){
   state.mealFoods = it && it.foods ? it.foods.slice() : [];
   $('mFood').value = '';
   $('mGram').value = '';
+  if ($('mSay')) $('mSay').value = '';
+  mealAiHint('', false);
   mealHint();
   renderMealFoods();
   $('btnDelMeal').style.display = it ? 'block' : 'none';
@@ -3010,7 +3193,7 @@ function mealHint(){
   var g = numOrNull($('mGram').value);
   var el = $('mHint');
   if (!el) return;
-  if (!name){ el.textContent = '直接写食物名（米饭、鸡胸肉、清炒西兰花、两个鸡蛋都行），库里有就自动算；没有会问你一次每 100 g 热量。'; return; }
+  if (!name){ el.textContent = '手动加一项：写食物名 + 克数（米饭、两个鸡蛋、清炒西兰花都行）。'; return; }
   var hit = foodFind(name, customFoods());
   if (!hit){ el.textContent = '“' + name + '”不在库里，添加时会问你每 100 g 的热量。'; return; }
   if (g && g > 0){
@@ -3418,13 +3601,14 @@ function ensureRevDate(){
 function aiCfg(){ return state.ai || AI_DEFAULT; }
 function aiReady(){ return !!(state.ai && state.ai.key); }
 function loadAiCfg(){
-  state.ai = { base: AI_DEFAULT.base, model: AI_DEFAULT.model, key: '' };
+  state.ai = { base: AI_DEFAULT.base, model: AI_DEFAULT.model, visionModel: AI_DEFAULT.visionModel, key: '' };
   try {
     var raw = localStorage.getItem(LS_AI);
     if (raw){
       var o = JSON.parse(raw) || {};
       state.ai.base = o.base || AI_DEFAULT.base;
       state.ai.model = o.model || AI_DEFAULT.model;
+      state.ai.visionModel = o.visionModel || AI_DEFAULT.visionModel;
       state.ai.key = o.key || '';
     }
     var raw2 = localStorage.getItem(LS_AI_REV);
@@ -3442,6 +3626,7 @@ function openAiCfg(){
   $('aiKey').value = cfg.key || '';
   $('aiModel').value = cfg.model || AI_DEFAULT.model;
   $('aiBase').value = cfg.base || AI_DEFAULT.base;
+  $('aiVision').value = cfg.visionModel || AI_DEFAULT.visionModel;
   $('aiShow').checked = false;
   $('aiKey').type = 'password';
   $('dlgAi').showModal();
@@ -3517,6 +3702,131 @@ function renderReview(){
     $('btnAiRedo').disabled = state.aiBusy;
   }
   drawAiTrend();
+}
+
+/* ---------- 吃：一句话 / 照片 交给模型拆解 ---------- */
+function mealAiHint(msg, isErr){
+  var el = $('mAiHint');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'aiadd-hint' + (isErr ? ' err' : '');
+}
+
+/* 通用的 /chat/completions 调用：返回模型输出的 JSON 对象（失败抛人话） */
+function aiChatJson(messages, model, opts){
+  var cfg = aiCfg();
+  var base = String(cfg.base || AI_DEFAULT.base).replace(/\/+$/, '');
+  var body = {
+    model: model || cfg.model || AI_DEFAULT.model,
+    messages: messages,
+    temperature: (opts && opts.temperature != null) ? opts.temperature : 0.3,
+    max_tokens: (opts && opts.maxTokens) || 1200,
+    stream: false
+  };
+  if (!opts || !opts.noJson) body.response_format = { type: 'json_object' };
+  var ctrl = null, timer = null;
+  try { ctrl = new AbortController(); } catch (e) {}
+  if (ctrl) timer = setTimeout(function(){ try { ctrl.abort(); } catch (e) {} }, 90000);
+  return fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+    body: JSON.stringify(body),
+    signal: ctrl ? ctrl.signal : undefined
+  }).then(function(res){
+    return res.text().then(function(txt){
+      var data = null;
+      try { data = JSON.parse(txt); } catch (e) {}
+      if (!res.ok) throw new Error(aiErrorText(res.status, data));
+      if (!data) throw new Error('接口返回的不是 JSON，检查「接口地址」。');
+      var content = data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content : '';
+      var one = content;
+      if (one && one.content && one.content.length && typeof one.content !== 'string') {
+        one = one.content.map(function(x){ return x.text || ''; }).join('');
+      }
+      return one;
+    });
+  }).then(function(content){
+    if (timer) clearTimeout(timer);
+    return content;
+  }, function(err){
+    if (timer) clearTimeout(timer);
+    if (err && err.name === 'AbortError') throw new Error('等了 90 秒还没返回，网络可能不通，稍后再试。');
+    throw err;
+  });
+}
+
+/* 把解析结果填进这一餐（替换现有明细，用户还能改克数/删行） */
+function applyMealAi(parsed, how){
+  var custom = customFoods();
+  var r = mealItemsFromAi(parsed, custom);
+  if (!r.foods.length){
+    mealAiHint('AI 没认出可以算的食物' + (r.unknown.length ? '（' + r.unknown.join('、') + '）' : '') + '，换个说法试试。', true);
+    return;
+  }
+  state.mealFoods = r.foods;
+  if (parsed.meal && MEAL_NAMES.indexOf(parsed.meal) >= 0) $('mMeal').value = parsed.meal;
+  persistCustomFoods();
+  renderMealFoods();
+  var total = Math.round(mealFoodsKcal(state.mealFoods));
+  var msg = how + '认出 ' + r.foods.length + ' 样：' + state.mealFoods.map(function(f){
+    return f.n + ' ' + f.g + 'g';
+  }).join('、') + '，合计 ' + total + ' 千卡。克数不对可以直接改。';
+  if (r.unknown.length) msg += '（这些没算出热量：' + r.unknown.join('、') + '）';
+  mealAiHint(msg, false);
+  toast('已拆成 ' + r.foods.length + ' 样，' + total + ' 千卡');
+}
+
+function aiMealFromSay(){
+  var text = ($('mSay').value || '').trim();
+  if (!text){ mealAiHint('先写一句话，比如「中午一碗牛肉面加两个鸡蛋」', true); return; }
+  if (!aiReady()){ mealAiHint('先去「AI 设置」填一个 API Key（在点评板块右上角）', true); openAiCfg(); return; }
+  if (state.mealBusy) return;
+  state.mealBusy = true;
+  $('btnSayMeal').disabled = true;
+  mealAiHint('正在让 AI 拆解…', false);
+  aiChatJson(buildMealMessages(text, null), null, { temperature: 0.2 })
+    .then(function(content){
+      var parsed = parseMealJson(content);
+      if (!parsed) throw new Error('模型返回的内容解析不出食物，点一次再试。');
+      applyMealAi(parsed, '');
+    })
+    .catch(function(err){ mealAiHint(err && err.message ? err.message : '请求失败', true); })
+    .then(function(){ state.mealBusy = false; $('btnSayMeal').disabled = false; });
+}
+
+function aiMealFromPhoto(file){
+  if (!file) return;
+  if (!aiReady()){ mealAiHint('先去「AI 设置」填一个 API Key（在点评板块右上角）', true); openAiCfg(); return; }
+  if (state.mealBusy) return;
+  state.mealBusy = true;
+  $('btnPhotoMeal').disabled = true;
+  mealAiHint('正在读图…', false);
+  readImageFile(file).then(function(img){
+    return shrinkImage(img, 1024, 0.82);
+  }).then(function(out){
+    if (!out || !out.blob) throw new Error('这张图处理不了，换一张试试。');
+    return new Promise(function(res, rej){
+      var fr = new FileReader();
+      fr.onload = function(){ res(String(fr.result)); };
+      fr.onerror = function(){ rej(new Error('图片读不出来')); };
+      fr.readAsDataURL(out.blob);
+    });
+  }).then(function(dataUrl){
+    mealAiHint('正在让 AI 认图…', false);
+    var model = (aiCfg().visionModel || AI_DEFAULT.visionModel);
+    return aiChatJson(buildMealMessages('', dataUrl), model, { temperature: 0.2 });
+  }).then(function(content){
+    var parsed = parseMealJson(content);
+    if (!parsed) throw new Error('没能从这张照片里认出食物，凑近一点、光线亮一点再拍。');
+    applyMealAi(parsed, '照片');
+  }).catch(function(err){
+    mealAiHint(err && err.message ? err.message : '识别失败', true);
+  }).then(function(){
+    state.mealBusy = false;
+    $('btnPhotoMeal').disabled = false;
+    if ($('mPhotoFile')) $('mPhotoFile').value = '';
+  });
 }
 
 function aiAnalyze(){
@@ -3985,11 +4295,18 @@ function bind(){
     $('aiKey').type = $('aiShow').checked ? 'text' : 'password';
   };
   $('btnCancelAi').onclick = function(){ $('dlgAi').close(); };
+  if ($('btnSayMeal')) $('btnSayMeal').onclick = aiMealFromSay;
+  if ($('btnPhotoMeal')) $('btnPhotoMeal').onclick = function(){ if ($('mPhotoFile')) $('mPhotoFile').click(); };
+  if ($('mPhotoFile')) $('mPhotoFile').onchange = function(){
+    var f = this.files && this.files[0];
+    if (f) aiMealFromPhoto(f);
+  };
   $('btnSaveAi').onclick = function(){
     state.ai = {
       key: ($('aiKey').value || '').trim(),
       model: ($('aiModel').value || '').trim() || AI_DEFAULT.model,
-      base: ($('aiBase').value || '').trim() || AI_DEFAULT.base
+      base: ($('aiBase').value || '').trim() || AI_DEFAULT.base,
+      visionModel: ($('aiVision').value || '').trim() || AI_DEFAULT.visionModel
     };
     persistAiCfg();
     $('dlgAi').close();
