@@ -655,17 +655,10 @@ section[hidden]{display:none}
         </div>
         <input type="file" id="mPhotoFile" accept="image/*" capture="environment" hidden>
       </div>
-      <div class="fhint" id="mHint"></div>
-      <div class="fadd">
-        <div><label>食物（也可以手动加一栏）</label><input id="mFood" autocomplete="off" placeholder="例：米饭"></div>
-        <div><label>克数</label><input id="mGram" inputmode="decimal" placeholder="例 150"></div>
-        <div><label>&nbsp;</label><button type="button" id="btnAddFood" class="primary">＋</button></div>
-      </div>
-      <div class="fhint" id="mHint"></div>
       <div class="foods" id="mFoods"></div>
       <div class="ftotal">这一餐合计 <b id="mSum">0</b> 千卡</div>
       <div><label>备注（可选）</label><input id="mNote" placeholder="在外吃、聚餐……"></div>
-      <div class="hint">三种用法都行：① 用一句话说这餐吃了什么，AI 拆成明细；② 拍张照让 AI 认；③ 手动一行一行加。热量都会按本机食物库再算一遍，三餐合计就是当天总热量。</div>
+      <div class="hint">两种用法：① 一句话说这餐吃了什么，AI 拆成明细；② 拍张照让 AI 认。拆出来的每一项都能改克数或删掉；热量按本机食物库再算一遍，三餐合计就是当天总热量。</div>
     </div>
     <div class="dlg-f">
       <button type="button" id="btnCancelMeal">取消</button>
@@ -3246,30 +3239,11 @@ function openMeal(id){
   $('mMeal').value = it && it.meal ? it.meal : defaultMeal();
   $('mNote').value = it && it.note ? it.note : '';
   state.mealFoods = it && it.foods ? it.foods.slice() : [];
-  $('mFood').value = '';
-  $('mGram').value = '';
   if ($('mSay')) $('mSay').value = '';
   mealAiHint('', false);
-  mealHint();
   renderMealFoods();
   $('btnDelMeal').style.display = it ? 'block' : 'none';
   $('dlgMeal').showModal();
-}
-
-function mealHint(){
-  var name = $('mFood').value.trim();
-  var g = numOrNull($('mGram').value);
-  var el = $('mHint');
-  if (!el) return;
-  if (!name){ el.textContent = '手动加一项：写食物名 + 克数（米饭、两个鸡蛋、清炒西兰花都行）。'; return; }
-  var hit = foodFind(name, customFoods());
-  if (!hit){ el.textContent = '“' + name + '”不在库里，添加时会问你每 100 g 的热量。'; return; }
-  if (g && g > 0){
-    el.textContent = '匹配到「' + hit.n + '」' + hit.k + ' 千卡/100g · ' + g + ' g ≈ ' +
-      Math.round(foodKcalOf(hit.k, g)) + ' 千卡';
-  } else {
-    el.textContent = '匹配到「' + hit.n + '」' + hit.k + ' 千卡/100g，填克数就能算';
-  }
 }
 
 function renderMealFoods(){
@@ -3282,29 +3256,6 @@ function renderMealFoods(){
       '<button type="button" class="mini" data-role="del" aria-label="删除">×</button></div>';
   }).join('');
   $('mSum').textContent = String(Math.round(mealFoodsKcal(list)));
-}
-
-function addMealFood(){
-  var name = $('mFood').value.trim();
-  var g = numOrNull($('mGram').value);
-  if (!name){ toast('先写食物名，比如「米饭」'); return; }
-  if (!g || g <= 0){ toast('克数要大于 0'); return; }
-  var hit = foodFind(name, customFoods());
-  var k100 = hit ? hit.k : null;
-  var finalName = hit ? hit.n : name;
-  if (k100 === null){
-    var ans = prompt('「' + name + '」不在食物库里，请输入它每 100 g 的热量（千卡）：', '');
-    var v = numOrNull(ans);
-    if (!v || v <= 0){ toast('没填热量，这个食物先不加'); return; }
-    k100 = v;
-    customFoods().push({ n: name, k: v, t: '自建' });
-    persistCustomFoods();
-  }
-  state.mealFoods.push({ n: finalName, g: g, k: k100, kcal: foodKcalOf(k100, g) });
-  $('mFood').value = '';
-  $('mGram').value = '';
-  mealHint();
-  renderMealFoods();
 }
 
 function defaultMeal(){
@@ -4459,12 +4410,9 @@ function bind(){
   $('btnCancelW').onclick = function(){ $('dlgWeight').close(); };
   $('btnSaveW').onclick = function(e){ e.preventDefault(); saveWeight(); };
   $('btnDelW').onclick = function(e){ e.preventDefault(); deleteWeight(); };
-  $('btnAddFood').onclick = function(e){ e.preventDefault(); addMealFood(); };
-  $('mFood').addEventListener('input', mealHint);
-  $('mGram').addEventListener('input', mealHint);
-  ['mFood', 'mGram'].forEach(function(id){
+  [].forEach(function(id){
     $(id).addEventListener('keydown', function(e){
-      if (e.key === 'Enter'){ e.preventDefault(); addMealFood(); }
+      if (e.key === 'Enter'){ e.preventDefault(); }
     });
   });
   $('mFoods').addEventListener('click', function(e){
