@@ -3723,7 +3723,8 @@ function aiChatJson(messages, model, opts){
     max_tokens: (opts && opts.maxTokens) || 1200,
     stream: false
   };
-  if (!opts || !opts.noJson) body.response_format = { type: 'json_object' };
+  var imageCall = !!(opts && opts.image);
+  if (!imageCall && !(opts && opts.noJson)) body.response_format = { type: 'json_object' };
   var ctrl = null, timer = null;
   try { ctrl = new AbortController(); } catch (e) {}
   if (ctrl) timer = setTimeout(function(){ try { ctrl.abort(); } catch (e) {} }, 90000);
@@ -3815,7 +3816,7 @@ function aiMealFromPhoto(file){
   }).then(function(dataUrl){
     mealAiHint('正在让 AI 认图…', false);
     var model = (aiCfg().visionModel || AI_DEFAULT.visionModel);
-    return aiChatJson(buildMealMessages('', dataUrl), model, { temperature: 0.2 });
+    return aiChatJson(buildMealMessages('', dataUrl), model, { temperature: 0.2, image: true });
   }).then(function(content){
     var parsed = parseMealJson(content);
     if (!parsed) throw new Error('没能从这张照片里认出食物，凑近一点、光线亮一点再拍。');
@@ -3863,7 +3864,15 @@ function aiAnalyze(){
     return res.text().then(function(txt){
       var data = null;
       try { data = JSON.parse(txt); } catch (e) {}
-      if (!res.ok) throw new Error(aiErrorText(res.status, data));
+      if (!res.ok){
+        // 有些模型（尤其视觉模型）不认 response_format：400 时去掉再试一次
+        if (res.status === 400 && body.response_format && !(opts && opts._retried)){
+          var b2 = JSON.parse(JSON.stringify(body));
+          delete b2.response_format;
+          return aiChatJson(messages, model, { temperature: body.temperature, maxTokens: body.max_tokens, image: imageCall, _retried: true });
+        }
+        throw new Error(aiErrorText(res.status, data));
+      }
       if (!data) throw new Error('接口返回的内容不是 JSON，检查「接口地址」是否填对。');
       var content = data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
