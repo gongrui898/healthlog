@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1600" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#060a12"/>
+      <stop offset="0.42" stop-color="#0e1728"/>
+      <stop offset="0.72" stop-color="#1a2740"/>
+      <stop offset="1" stop-color="#0b121b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe8c8" stop-opacity="0.50"/>
+      <stop offset="0.42" stop-color="#ffcf9e" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#ffcf9e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#fff6ea" stop-opacity="0.96"/>
+      <stop offset="0.6" stop-color="#ffdcb4" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#b9c9ee" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="hairLine" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#fff0d8" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#cbb3ea" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#7f9ed9" stop-opacity="0.22"/>
+    </linearGradient>
+    <linearGradient id="hairFill" x1="0.2" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#e9ddf7" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#6f8ecb" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b121b" stop-opacity="0.08"/>
+      <stop offset="0.55" stop-color="#0b121b" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#0b121b" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="1600" fill="url(#sky)"/>
+  <ellipse cx="480" cy="800" rx="420" ry="460" fill="url(#glow)"/>
+
+  <!-- 星 -->
+  <g fill="#e8f0ff">
+    <circle cx="132" cy="146" r="1.4" opacity="0.7"/><circle cx="242" cy="92" r="1" opacity="0.45"/>
+    <circle cx="336" cy="176" r="1.2" opacity="0.5"/><circle cx="694" cy="118" r="1.6" opacity="0.6"/>
+    <circle cx="796" cy="206" r="1.1" opacity="0.4"/><circle cx="618" cy="238" r="1" opacity="0.32"/>
+    <circle cx="118" cy="326" r="1.1" opacity="0.32"/><circle cx="778" cy="374" r="1" opacity="0.28"/>
+    <circle cx="296" cy="296" r="1.2" opacity="0.36"/><circle cx="556" cy="146" r="1" opacity="0.36"/>
+    <circle cx="700" cy="470" r="0.9" opacity="0.22"/>
+  </g>
+
+  <!-- 月亮 -->
+  <circle cx="166" cy="240" r="200" fill="url(#glow)" opacity="0.9"/>
+  <circle cx="166" cy="240" r="42" fill="#fdf5e6" opacity="0.92"/>
+
+  <!-- 侧脸轮廓 -->
+  <g fill="none" stroke="url(#line)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M500 598
+             C466 604 440 622 428 652
+             C422 668 420 684 420 700
+             C420 712 415 722 412 732
+             C409 742 409 749 414 753
+             C416 757 419 760 418 764
+             C417 770 412 772 410 776
+             C408 780 410 784 414 785
+             C410 790 412 795 418 796
+             C420 802 424 808 430 812"
+          stroke-width="3"/>
+    <!-- 颈部与肩（一条线带过去，别在下巴下打钩） -->
+    <path d="M430 812 C431 838 434 860 440 876 C414 892 388 916 372 950"
+          stroke-width="2.2" opacity="0.55"/>
+    <path d="M440 876 C486 890 522 914 548 950" stroke-width="2" opacity="0.4"/>
+    <!-- 锁骨 -->
+    <path d="M462 896 C484 904 504 912 518 922" stroke-width="1.3" opacity="0.2"/>
+  </g>
+
+  <!-- 眼睛（闭着，睫毛上挑） -->
+  <g fill="none" stroke="#ffe9cf" stroke-linecap="round">
+    <path d="M424 712 C436 720 448 720 456 712" stroke-width="2.4" opacity="0.9"/>
+    <path d="M456 712 C462 709 466 705 468 700" stroke-width="1.9" opacity="0.75"/>
+    <path d="M430 716 C434 718 438 718 441 717" stroke-width="1.3" opacity="0.45"/>
+  </g>
+  <!-- 眉毛 -->
+  <path d="M424 686 C438 677 452 676 464 683" fill="none" stroke="#ffe0c6" stroke-width="2"
+        stroke-linecap="round" opacity="0.45"/>
+  <!-- 腮红 -->
+  <g stroke="#ff9fb0" stroke-width="1.6" stroke-linecap="round" opacity="0.4">
+    <path d="M418 762 L429 758"/><path d="M420 768 L431 764"/><path d="M422 774 L432 770"/>
+  </g>
+
+  <!-- 头发线稿 -->
+  <g fill="none" stroke="url(#hairLine)" stroke-linecap="round">
+    <!-- 头顶（把头骨和头发连起来） -->
+    <path d="M500 598 C516 585 544 583 566 596" stroke-width="1.8" opacity="0.5"/>
+    <!-- 外轮廓 -->
+    <path d="M500 598
+             C556 584 606 606 632 656
+             C660 712 672 780 668 848
+             C664 918 644 984 614 1036"
+          stroke-width="3"/>
+    <!-- 第二缕 -->
+    <path d="M516 612
+             C562 604 600 626 620 668
+             C644 718 652 776 646 832
+             C640 892 622 948 596 994"
+          stroke-width="2" opacity="0.62"/>
+    <!-- 第三缕 -->
+    <path d="M534 618 C574 616 602 636 616 668" stroke-width="1.5" opacity="0.38"/>
+    <!-- 额前刘海 -->
+    <path d="M500 598 C478 612 462 630 452 652" stroke-width="2" opacity="0.55"/>
+    <path d="M514 604 C494 622 480 644 472 668" stroke-width="1.3" opacity="0.32"/>
+    <!-- 贴脸的一缕 -->
+    <path d="M470 646 C458 674 452 700 454 722" stroke-width="1.2" opacity="0.28"/>
+    <!-- 发梢 -->
+    <path d="M614 1036 C600 1068 580 1096 558 1114" stroke-width="1.6" opacity="0.34"/>
+    <path d="M596 994 C584 1024 566 1050 546 1068" stroke-width="1.2" opacity="0.24"/>
+    <!-- 呆毛 -->
+    <path d="M524 582 C532 558 550 546 570 550" stroke-width="1.6" opacity="0.45"/>
+  </g>
+
+  <!-- 花瓣 -->
+  <g fill="#ffc2d1" opacity="0.5">
+    <ellipse cx="300" cy="840" rx="7" ry="4" transform="rotate(-32 300 840)"/>
+    <ellipse cx="256" cy="980" rx="5.5" ry="3.2" transform="rotate(22 256 980)"/>
+    <ellipse cx="740" cy="930" rx="6.5" ry="3.6" transform="rotate(48 740 930)"/>
+    <ellipse cx="792" cy="1062" rx="5" ry="3" transform="rotate(-12 792 1062)"/>
+    <ellipse cx="210" cy="1120" rx="5.5" ry="3.2" transform="rotate(18 210 1120)"/>
+    <ellipse cx="620" cy="1130" rx="5" ry="3" transform="rotate(-44 620 1130)"/>
+    <ellipse cx="380" cy="1206" rx="5" ry="3" transform="rotate(30 380 1206)"/>
+  </g>
+
+  <rect width="900" height="1600" fill="url(#scrim)"/>
+</svg>
