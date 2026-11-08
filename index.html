@@ -13,7 +13,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{
-  --bg:#0b121b; --card:rgba(20,30,43,.86); --card2:rgba(26,38,53,.9); --line:#22303f;
+  /* 卡片透明度：改 --glass 就行，0.2 更透、0.8 更实 */
+  --glass:.42; --glass2:.5;
+  --bg:#0b121b; --card:rgb(17 26 39 / var(--glass)); --card2:rgb(24 36 52 / var(--glass2)); --field:rgb(9 15 23 / .58); --line:rgba(52,72,96,.75);
   --tx:#e8eef6; --dim:#8fa3b8; --accent:#4da3ff; --ok:#4dd6a0;
   --warn:#ffb454; --bad:#ff6b7a; --night:#2c6fd1; --wake:#ffb454;
   color-scheme:dark;
@@ -24,7 +26,7 @@ html,body{margin:0;padding:0}
 body::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:url('bg-anime.svg') center 30%/cover no-repeat;
-  opacity:.92;filter:blur(1.5px) saturate(1.08);
+  opacity:.92;filter:blur(.8px) saturate(1.1);
 }
 body{
   background:radial-gradient(1200px 600px at 50% -10%,#16273a 0%,var(--bg) 55%) no-repeat,
@@ -35,7 +37,7 @@ body{
 }
 header{
   position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);
-  background:rgba(11,18,27,.78);border-bottom:1px solid var(--line);
+  background:rgba(11,18,27,.62);border-bottom:1px solid var(--line);
   padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
   display:flex;align-items:center;gap:10px;
 }
@@ -46,7 +48,7 @@ header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.5px}
 }
 .chip b{color:var(--accent);font-weight:600}
 main{position:relative;z-index:1;padding:14px 12px 96px;max-width:720px;margin:0 auto}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;backdrop-filter:blur(7px) saturate(1.06);-webkit-backdrop-filter:blur(7px) saturate(1.06)}
 .card h2{font-size:13px;margin:0 0 10px;color:var(--dim);font-weight:500;letter-spacing:.4px}
 .range{display:flex;gap:6px;margin-bottom:10px}
 .range button{
@@ -55,7 +57,7 @@ main{position:relative;z-index:1;padding:14px 12px 96px;max-width:720px;margin:0
 }
 .range button.on{background:rgba(77,163,255,.16);border-color:rgba(77,163,255,.5);color:var(--accent)}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;backdrop-filter:blur(7px) saturate(1.06);-webkit-backdrop-filter:blur(7px) saturate(1.06)}
 .kpi .k{font-size:11px;color:var(--dim);letter-spacing:.4px}
 .kpi .v{font-size:22px;font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
 .kpi .s{font-size:11px;color:var(--dim);margin-top:2px}
@@ -88,7 +90,7 @@ ul.ins .tag{flex:none;width:18px;text-align:center}
 .bar-actions button{flex:1;border-radius:12px;padding:12px 0;font-size:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx)}
 .bar-actions button.primary{background:var(--accent);border-color:var(--accent);color:#07131f;font-weight:650}
 dialog{
-  border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--tx);
+  border:1px solid var(--line);border-radius:18px;color:var(--tx);background:rgba(16,25,38,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   padding:0;width:min(94vw,460px);
 }
 dialog::backdrop{background:rgba(4,8,12,.66);backdrop-filter:blur(3px)}
@@ -99,7 +101,7 @@ dialog::backdrop{background:rgba(4,8,12,.66);backdrop-filter:blur(3px)}
 .dlg-f button.primary{background:var(--accent);border-color:var(--accent);color:#07131f;font-weight:650}
 label{font-size:12px;color:var(--dim);display:block;margin-bottom:3px}
 input,textarea,select{
-  width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  width:100%;background:var(--field);border:1px solid var(--line);border-radius:10px;
   color:var(--tx);padding:10px;font-size:15px;font-family:inherit;
 }
 textarea{min-height:88px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
@@ -119,7 +121,7 @@ textarea{min-height:88px;font-family:ui-monospace,Menlo,Consolas,monospace;font-
   background:rgba(255,180,84,.12);border:1px solid rgba(255,180,84,.35);color:#ffcf8b;
   border-radius:12px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;
 }
-.tabs{display:flex;gap:4px;margin:0 0 10px;background:var(--card);border:1px solid var(--line);
+.tabs{display:flex;gap:4px;margin:0 0 10px;background:var(--card);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);
   border-radius:12px;padding:4px}
 .tabs{overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
