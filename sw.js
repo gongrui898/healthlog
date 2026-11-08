@@ -1,6 +1,7 @@
 /* 吃练睡 service worker：装到桌面后断网也能打开 */
-const CACHE = 'healthlog-v9';
-const ASSETS = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+const CACHE = 'healthlog-v10';
+const ASSETS = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png',
+      './bg-anime.svg', './icon-maskable-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
