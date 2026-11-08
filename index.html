@@ -13,13 +13,19 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{
-  --bg:#0b121b; --card:#141e2b; --card2:#1a2635; --line:#22303f;
+  --bg:#0b121b; --card:rgba(20,30,43,.86); --card2:rgba(26,38,53,.9); --line:#22303f;
   --tx:#e8eef6; --dim:#8fa3b8; --accent:#4da3ff; --ok:#4dd6a0;
   --warn:#ffb454; --bad:#ff6b7a; --night:#2c6fd1; --wake:#ffb454;
   color-scheme:dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
+/* 壁纸：固定铺满、低透明度，保证文字对比度（换图就改这里的文件名） */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:url('bg-anime.svg') center 30%/cover no-repeat;
+  opacity:.92;filter:blur(1.5px) saturate(1.08);
+}
 body{
   background:radial-gradient(1200px 600px at 50% -10%,#16273a 0%,var(--bg) 55%) no-repeat,
              var(--bg);
@@ -39,7 +45,7 @@ header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.5px}
   border-radius:999px;padding:5px 12px;font-size:12px;
 }
 .chip b{color:var(--accent);font-weight:600}
-main{padding:14px 12px 96px;max-width:720px;margin:0 auto}
+main{position:relative;z-index:1;padding:14px 12px 96px;max-width:720px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 .card h2{font-size:13px;margin:0 0 10px;color:var(--dim);font-weight:500;letter-spacing:.4px}
 .range{display:flex;gap:6px;margin-bottom:10px}
