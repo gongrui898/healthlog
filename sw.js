@@ -1,5 +1,5 @@
 ﻿/* 吃练睡 service worker：装到桌面后断网也能打开 */
-const CACHE = 'healthlog-v15';
+const CACHE = 'healthlog-v16';
 const ASSETS = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png',
       './bg-anime.svg', './icon-maskable-512.png'];
 
