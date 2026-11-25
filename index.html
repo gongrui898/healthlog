@@ -602,6 +602,7 @@ section[hidden]{display:none}
         <div><label>时长（分钟）</label><input id="eMin" placeholder="例 45"></div>
         <div><label>消耗（千卡，可选）</label><input id="eKcal" inputmode="numeric" placeholder="例 380"></div>
       </div>
+      <div class="hint" id="eKcalHint">留空就按类型和时长自动估。</div>
       <div class="grid2">
         <div><label>距离（公里，可选）</label><input id="eKm" inputmode="decimal" placeholder="例 5.2"></div>
         <div><label>备注（可选）</label><input id="eNote" placeholder="夜跑、私教课……"></div>
@@ -2316,6 +2317,20 @@ function buildEnergyInsights(e){
   }
   return out;
 }
+/* ---------- 运动消耗估算（MET × 体重 × 时长）---------- */
+// MET 取自常用体力活动能量消耗表；力量训练按"多组+组间休息"取 4.5
+var EX_MET = {
+  '走路': 3.5, '跑步': 9.8, '骑行': 7.5, '游泳': 7.0, '力量训练': 4.5,
+  '球类': 7.0, '瑜伽': 2.5, '跳绳': 11.0, '其他': 4.0
+};
+function exMet(type){ return EX_MET[type] || 4.0; }
+// 千卡 = MET × 3.5 × 体重kg / 200 × 分钟
+function exEstimateKcal(type, minutes, kg){
+  var m = Number(minutes) || 0, w = Number(kg) || 0;
+  if (m <= 0 || w <= 0) return null;
+  return Math.round(exMet(type) * 3.5 * w / 200 * m);
+}
+
 /* LOGIC-END */
 
 /* ================= 界面 ================= */
@@ -3409,6 +3424,18 @@ function findItem(id){
   return state.items.filter(function(it){ return it.id === id; })[0] || null;
 }
 
+function exKcalHint(){
+  var kgRec = weightRecordAt(state.items, todayIso());
+  var kg = kgRec ? kgRec.kg : null;
+  var min = parseDuration($('eMin').value, 'auto');
+  var k = kg ? exEstimateKcal($('eType').value, min, kg) : null;
+  var el = $('eKcalHint');
+  if (!el) return;
+  if (!kg){ el.textContent = '先记一次体重，才能按类型和时长自动估。'; return; }
+  if (!min){ el.textContent = '填了时长就能估：' + $('eType').value + '按 ' + kg + ' kg 算，每 10 分钟约 ' + exEstimateKcal($('eType').value, 10, kg) + ' 千卡。'; return; }
+  el.textContent = $('eType').value + ' ' + min + ' 分钟，按 ' + kg + ' kg 估 ≈ ' + k + ' 千卡（留空就自动用这个数）。';
+}
+
 function openEx(id){
   state.editId = id || null;
   var it = id ? findItem(id) : null;
@@ -3420,6 +3447,7 @@ function openEx(id){
   $('eKm').value = it && it.km ? String(it.km) : '';
   $('eNote').value = it && it.note ? it.note : '';
   $('btnDelEx').style.display = it ? 'block' : 'none';
+  exKcalHint();
   $('dlgEx').showModal();
 }
 
@@ -3429,11 +3457,15 @@ function saveEx(){
   var minutes = parseDuration($('eMin').value, 'auto');
   if (!minutes || minutes < 1 || minutes > 1440){ toast('填运动时长（分钟），1 到 1440 之间'); return; }
   var old = state.editId ? findItem(state.editId) : null;
+  var kcalManual = numOrNull($('eKcal').value);
+  var kgRec = weightRecordAt(state.items, date);
+  var autoKcal = exEstimateKcal($('eType').value || '其他', minutes, kgRec ? kgRec.kg : null);
   var it = {
     id: old ? old.id : uid('ex'), kind: 'ex', date: date,
     type: $('eType').value || '其他',
     minutes: Math.round(minutes),
-    kcal: numOrNull($('eKcal').value),
+    kcal: kcalManual !== null ? kcalManual : autoKcal,
+    kcalAuto: kcalManual === null && autoKcal !== null,
     km: numOrNull($('eKm').value),
     note: $('eNote').value.trim(),
     updated: nowIso()
@@ -4673,6 +4705,8 @@ function bind(){
   };
   $('btnCancelAdd').onclick = function(){ $('dlgAdd').close(); };
   $('btnSaveAdd').onclick = function(e){ e.preventDefault(); saveAdd(); };
+  $('eMin').oninput = exKcalHint;
+  $('eType').onchange = exKcalHint;
   $('btnCancelEx').onclick = function(){ $('dlgEx').close(); };
   $('btnSaveEx').onclick = function(e){ e.preventDefault(); saveEx(); };
   $('btnDelEx').onclick = function(e){ e.preventDefault(); deleteEx(); };
