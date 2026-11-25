@@ -677,9 +677,13 @@ section[hidden]{display:none}
       </div>
       <div class="grid2">
         <div><label>体脂（%，可选）</label><input id="wFat" inputmode="decimal" placeholder="例 21.5"></div>
+        <div><label>腰围（cm，可选）</label><input id="wWaist" inputmode="decimal" placeholder="例 88"></div>
+      </div>
+      <div class="grid2">
         <div><label>备注（可选）</label><input id="wNote" placeholder="空腹、运动后……"></div>
       </div>
-      <div class="hint">固定同一时间称最准，推荐早上起床、上完厕所、空腹。</div>
+      <div class="hint">固定同一时间称最准，推荐早上起床、上完厕所、空腹。
+        腰围量肚脐水平一圈、呼气末量；只填腰围也能估体脂。</div>
     </div>
     <div class="dlg-f">
       <button type="button" id="btnCancelW">取消</button>
@@ -1433,7 +1437,8 @@ function weightEntries(items){
   return itemsOf(items, 'weight')
     .filter(function(it){ return it && it.date && numOrNull(it.kg) !== null; })
     .map(function(it){
-      return { id: it.id, date: it.date, kg: numOrNull(it.kg), fat: numOrNull(it.fat), note: it.note || '' };
+      return { id: it.id, date: it.date, kg: numOrNull(it.kg), fat: numOrNull(it.fat),
+               waist: numOrNull(it.waist), note: it.note || '' };
     })
     .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
 }
@@ -1494,8 +1499,15 @@ function weightStats(items, days, targetKg){
     if (filled[i].kg !== null) streak++; else break;
   }
 
+  var withWaist = all.filter(function(e){ return e.waist !== null; });
+  var firstWaist = withWaist.length ? withWaist[0] : null;
+  var latestWaist = withWaist.length ? withWaist[withWaist.length - 1] : null;
+  var waistLost = (firstWaist && latestWaist && firstWaist.date !== latestWaist.date)
+    ? round1(firstWaist.waist - latestWaist.waist) : null;
+
   return {
     days: days, entries: all, inWin: inWin, filled: filled, measured: measured,
+    waistEntries: withWaist, firstWaist: firstWaist, latestWaist: latestWaist, waistLost: waistLost,
     first: first, latest: latest, prev: prev, lost: lost, lastDelta: lastDelta,
     hasTarget: hasTarget, targetKg: hasTarget ? tgt : null,
     toGo: toGo, plan: plan, pct: pct,
@@ -1566,6 +1578,35 @@ function buildWeightInsights(s){
   }
   if (s.streak >= 3){
     add('good', '已连续记录 ' + s.streak + ' 天。');
+  }
+  if (s.latestWaist){
+    var lwv = s.latestWaist, hv = state.heightCm;
+    var est = hv ? bodyFatFromWaist(lwv.waist, hv, state.sex) : null;
+    if (s.waistLost !== null && s.waistLost > 0.3){
+      add('good', '腰围从最初的 ' + s.firstWaist.waist.toFixed(1) + ' cm 收到 ' + lwv.waist.toFixed(1) +
+        ' cm，少了 ' + s.waistLost.toFixed(1) + ' cm。腰围比体重更能反映内脏脂肪的变化。');
+    } else if (s.waistLost !== null && s.waistLost < -0.3){
+      add('warn', '腰围从 ' + s.firstWaist.waist.toFixed(1) + ' cm 涨到 ' + lwv.waist.toFixed(1) +
+        ' cm，多了 ' + Math.abs(s.waistLost).toFixed(1) + ' cm，比体重上涨更值得留意。');
+    } else if (s.waistLost === null){
+      add('info', '最近一次腰围 ' + lwv.waist.toFixed(1) + ' cm（' + lwv.date.slice(5) +
+        '）。量两三次才能看出趋势，两周量一次就够。');
+    }
+    if (hv){
+      var r = whtr(lwv.waist, hv);
+      if (r >= 0.5){
+        add('warn', '腰围 ÷ 身高 = ' + r.toFixed(2) + '，超过 0.5 的警戒线。同等体重下，这种中心性脂肪对代谢的影响比四肢脂肪大。');
+      } else {
+        add('good', '腰围 ÷ 身高 = ' + r.toFixed(2) + '，在 0.5 以下，内脏脂肪风险低。');
+      }
+    }
+    if (est !== null){
+      add('info', '按腰围估体脂约 ' + est.toFixed(1) + '%（RFM 公式，只要身高+腰围）' +
+        (s.latest && s.latest.fat ? '；最新一条量表读数 ' + s.latest.fat + '%，两者差得多时以量表为准。' :
+         '。想要更准就填一次量表读数，或者在「吃 → 今日热量账 → 设置」里改体脂。'));
+    }
+  } else if (s.latest){
+    add('info', '还没记过腰围。量一次肚脐水平的周长填进去，能多出一个比体重更灵敏的指标，也能估算体脂。');
   }
   if (s.recorded && s.coverage < 0.4){
     add('warn', '最近 ' + s.days + ' 天只记了 ' + s.recorded + ' 次，趋势线会抖，建议至少隔天记一次。');
@@ -2240,7 +2281,15 @@ function bmrInfo(items, date, cfg){
   cfg = cfg || {};
   var w = weightRecordAt(items, date);
   var kg = w ? w.kg : null;
-  var bf = (w && w.fat) ? w.fat : (cfg.bfPct ? Number(cfg.bfPct) : null);
+  // 体脂取值优先级：量表实测 > 设置里手填（bfManual）> 腰围估算 > 默认值
+  var bf = (w && w.fat) ? w.fat : null;
+  if (!bf && cfg.bfManual && cfg.bfPct) bf = Number(cfg.bfPct);
+  if (!bf){
+    var wr = waistRecordAt(items, date);
+    var est = wr ? bodyFatFromWaist(wr.waist, cfg.heightCm, cfg.sex) : null;
+    if (est !== null) bf = est;
+  }
+  if (!bf && cfg.bfPct) bf = Number(cfg.bfPct);
   var manual = cfg.bmrManual ? Number(cfg.bmrManual) : null;
   if (manual && manual >= 800 && manual <= 4000){
     return { kcal: Math.round(manual), method: 'manual', kg: kg, bf: bf, weightDate: w ? w.date : null };
@@ -2317,6 +2366,36 @@ function buildEnergyInsights(e){
   }
   return out;
 }
+/* ---------- 腰围估算体脂（RFM，Woolcott & Bergman 2018）---------- */
+// 只要身高和腰围：男 RFM = 64 − 20 × (身高/腰围)，女 = 76 − 20 × (身高/腰围)
+function bodyFatFromWaist(waist, heightCm, sex){
+  var w = Number(waist) || 0, h = Number(heightCm) || 0;
+  if (w <= 0 || h <= 0) return null;
+  var base = sex === 'f' ? 76 : 64;
+  var v = base - 20 * (h / w);
+  if (!isFinite(v)) return null;
+  return Math.round(Math.max(3, Math.min(60, v)) * 10) / 10;
+}
+
+// 腰围 ÷ 身高，0.5 以上算中心性肥胖的警戒线
+function whtr(waist, heightCm){
+  var w = Number(waist) || 0, h = Number(heightCm) || 0;
+  if (w <= 0 || h <= 0) return null;
+  return Math.round((w / h) * 1000) / 1000;
+}
+
+// 取 date 当天或之前最近一条有腰围的记录
+function waistRecordAt(items, date){
+  var best = null;
+  (items || []).forEach(function(it){
+    if (!it || it.kind !== 'weight' || !it.date) return;
+    if (numOrNull(it.waist) === null) return;
+    if (date && it.date > date) return;
+    if (!best || it.date > best.date) best = it;
+  });
+  return best;
+}
+
 /* ---------- 运动消耗估算（MET × 体重 × 时长）---------- */
 // MET 取自常用体力活动能量消耗表；力量训练按"多组+组间休息"取 4.5
 var EX_MET = {
@@ -2341,7 +2420,7 @@ var state = {
   photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true,
   customFoods: null, mealFoods: [], priv: false, mealTouched: false, lastMeal: null,
   // 默认值按这台手机的主人预填（男 / 38 岁 / 173cm / 体脂 22%），设置里随时可改
-  sex: 'm', age: 38, heightCm: 173, bfPct: 22, bmrManual: null, energyDate: null
+  sex: 'm', age: 38, heightCm: 173, bfPct: 22, bfManual: false, bmrManual: null, energyDate: null
 };
 var LS_ITEMS = 'sleepstat.items.v2', LS_TOMBS = 'sleepstat.tombs.v2',
     LS_CFG = 'sleepstat.cfg.v2', LS_REC_V1 = 'sleepstat.records.v1', LS_CFG_V1 = 'sleepstat.cfg.v1',
@@ -2425,6 +2504,7 @@ function load(){
     if (cfg && cfg.age) state.age = Number(cfg.age) || null;
     if (cfg && cfg.heightCm) state.heightCm = Number(cfg.heightCm) || null;
     if (cfg && cfg.bfPct) state.bfPct = Number(cfg.bfPct) || null;
+    if (cfg && cfg.bfManual) state.bfManual = !!cfg.bfManual;
     if (cfg && cfg.bmrManual) state.bmrManual = Number(cfg.bmrManual) || null;
   } catch (e) {}
   try { state.priv = localStorage.getItem(LS_PRIV) === '1'; } catch (e) {}
@@ -2439,7 +2519,7 @@ function persistLocal(){
     localStorage.setItem(LS_CFG, JSON.stringify({
       target: state.target, targetKg: state.targetKg,
       sex: state.sex, age: state.age, heightCm: state.heightCm,
-      bfPct: state.bfPct, bmrManual: state.bmrManual
+      bfPct: state.bfPct, bfManual: state.bfManual, bmrManual: state.bmrManual
     }));
   } catch (e) {
     toast('保存失败：浏览器存储不可用，请导出备份');
@@ -2720,6 +2800,17 @@ function renderWeight(){
     etaTxt = '已达成';
     etaSub = '目标 ' + s.targetKg.toFixed(1) + ' kg';
   }
+  var lw = s.latestWaist;
+  var bfEst = lw ? bodyFatFromWaist(lw.waist, state.heightCm, state.sex) : null;
+  var bfScale = s.latest && s.latest.fat ? s.latest.fat : null;
+  var whtrTxt = lw ? whtr(lw.waist, state.heightCm) : null;
+  var waistSub = !lw ? '点「＋ 体重」顺便量一下'
+    : (s.waistLost === null ? (whtrTxt === null ? '按 ' + lw.date.slice(5) + ' 记的' :
+        '腰高比 ' + whtrTxt.toFixed(2))
+      : (s.waistLost > 0 ? '比最初小 ' + s.waistLost.toFixed(1) + ' cm'
+        : (s.waistLost < 0 ? '比最初大 ' + Math.abs(s.waistLost).toFixed(1) + ' cm' : '和最初一样')));
+  var bfSub = bfEst === null ? '填腰围就能估'
+    : ('按腰围算的 RFM' + (bfScale ? '，量表 ' + bfScale + '%' : ''));
   $('kpisW').innerHTML = [
     kpi('当前体重', empty ? '—' : s.latest.kg.toFixed(1) + ' kg', empty ? '还没有记录' : lastTxt, 'accent'),
     kpi('距目标', !s.hasTarget ? '—' : (s.toGo > 0 ? s.toGo.toFixed(1) + ' kg' : '已达成'),
@@ -2734,7 +2825,11 @@ function renderWeight(){
     kpi('近期速度', s.rate === null ? '—' : (s.rate * 7 >= 0 ? '+' : '') + (s.rate * 7).toFixed(1) + ' kg/周',
       s.rate7 === null ? '' : '近 7 天 ' + (s.rate7 * 7 >= 0 ? '+' : '') + (s.rate7 * 7).toFixed(1) + ' kg',
       s.rate === null ? '' : (s.rate < -0.004 ? 'ok' : (s.rate > 0.004 ? 'bad' : ''))),
-    kpi('预计达成', etaTxt, etaSub, s.etaDate ? 'ok' : '')
+    kpi('预计达成', etaTxt, etaSub, s.etaDate ? 'ok' : ''),
+    kpi('腰围', lw ? lw.waist.toFixed(1) + ' cm' : '—', waistSub,
+      !lw ? '' : (s.waistLost > 0 ? 'ok' : (s.waistLost < 0 ? 'bad' : ''))),
+    kpi('体脂估算', bfEst === null ? '—' : bfEst.toFixed(1) + '%', bfSub,
+      bfEst === null ? '' : (whtrTxt !== null && whtrTxt >= 0.5 ? 'warn' : 'ok'))
   ].join('');
   drawWeight(s);
   renderIns($('insW'), buildWeightInsights(s));
@@ -2805,6 +2900,7 @@ function renderWeightList(s){
     var cls = d === null ? '' : (d < 0 ? 'ok' : (d > 0 ? 'bad' : ''));
     var extra = [];
     if (e.fat) extra.push('体脂 ' + e.fat + '%');
+    if (e.waist) extra.push('腰围 ' + e.waist + ' cm');
     if (e.note) extra.push(e.note);
     return '<div class="row" data-id="' + e.id + '">' +
       '<div class="d">' + e.date.slice(5) + ' ' + '日一二三四五六'.charAt(weekdayOf(e.date)) + '</div>' +
@@ -2817,7 +2913,7 @@ function renderWeightList(s){
 function cfgEnergy(){
   return {
     sex: state.sex, age: state.age, heightCm: state.heightCm,
-    bfPct: state.bfPct, bmrManual: state.bmrManual
+    bfPct: state.bfPct, bfManual: state.bfManual, bmrManual: state.bmrManual
   };
 }
 
@@ -2885,6 +2981,7 @@ function saveEnergyCfg(){
   if (manual !== null && (manual < 800 || manual > 4000)){ toast('基础代谢填 800 到 4000 之间'); return; }
   state.sex = $('bSex').value === 'm' ? 'm' : 'f';
   state.age = age; state.heightCm = hgt; state.bfPct = fat; state.bmrManual = manual;
+  state.bfManual = fat !== null;
   save();
   render();
   $('dlgBmr').close();
@@ -3612,6 +3709,7 @@ function openWeight(id){
   $('wDate').value = it ? it.date : todayIso();
   $('wKg').value = it && it.kg ? String(it.kg) : '';
   $('wFat').value = it && it.fat ? String(it.fat) : '';
+  $('wWaist').value = it && it.waist ? String(it.waist) : '';
   $('wNote').value = it && it.note ? it.note : '';
   $('btnDelW').style.display = it ? 'block' : 'none';
   $('dlgWeight').showModal();
@@ -3624,11 +3722,14 @@ function saveWeight(){
   if (kg === null || kg < 20 || kg > 300){ toast('填体重（kg），20 到 300 之间'); return; }
   var fat = numOrNull($('wFat').value);
   if (fat !== null && (fat < 2 || fat > 70)){ toast('体脂在 2% 到 70% 之间，可不填'); return; }
+  var waist = numOrNull($('wWaist').value);
+  if (waist !== null && (waist < 40 || waist > 200)){ toast('腰围在 40 到 200 cm 之间，可不填'); return; }
   var old = state.editId ? findWeightItem(state.editId) : null;
   var it = {
     id: old ? old.id : 'weight:' + date, kind: 'weight', date: date,
     kg: Math.round(kg * 10) / 10,
     fat: fat,
+    waist: waist,
     note: $('wNote').value.trim(),
     updated: nowIso()
   };
@@ -3741,8 +3842,12 @@ function exportCsv(){
   if (tab === 'weight'){
     var ws = weightEntries(state.items);
     if (!ws.length){ toast('还没有体重记录'); return; }
-    var wrows = [['日期', '体重kg', '体脂%', '备注']];
-    ws.forEach(function(e){ wrows.push([e.date, e.kg, e.fat === null ? '' : e.fat, e.note]); });
+    var wrows = [['日期', '体重kg', '体脂%', '腰围cm', '体脂估算%(腰围)', '备注']];
+    ws.forEach(function(e){
+      var est = e.waist ? bodyFatFromWaist(e.waist, state.heightCm, state.sex) : null;
+      wrows.push([e.date, e.kg, e.fat === null ? '' : e.fat, e.waist === null ? '' : e.waist,
+        est === null ? '' : est, e.note]);
+    });
     download('体重记录-' + todayIso() + '.csv', csvText(wrows), 'text/csv;charset=utf-8');
     toast('已导出 ' + ws.length + ' 条体重记录');
     return;
@@ -3864,7 +3969,8 @@ function demoData(){
   wPlan.forEach(function(kg, i){
     var date = addDays(base, -(wPlan.length - 1 - i));
     state.items.push({ id: 'weight:' + date, kind: 'weight', date: date, kg: kg,
-      fat: Math.round((21.5 - i * 0.08) * 10) / 10, note: '示例', updated: nowIso() });
+      fat: Math.round((21.5 - i * 0.08) * 10) / 10,
+      waist: Math.round((93.6 - i * 0.13) * 10) / 10, note: '示例', updated: nowIso() });
   });
   if (!state.targetKg) state.targetKg = 70;
 
