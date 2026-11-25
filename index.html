@@ -2325,7 +2325,8 @@ var state = {
   ai: null, aiReviews: {}, aiBusy: false, mealBusy: false,
   photos: [], photoUrls: {}, photoEdit: null, photoBusy: false, photoSupport: true,
   customFoods: null, mealFoods: [], priv: false, mealTouched: false, lastMeal: null,
-  sex: 'f', age: null, heightCm: null, bfPct: null, bmrManual: null, energyDate: null
+  // 默认值按这台手机的主人预填（男 / 38 岁 / 173cm / 体脂 22%），设置里随时可改
+  sex: 'm', age: 38, heightCm: 173, bfPct: 22, bmrManual: null, energyDate: null
 };
 var LS_ITEMS = 'sleepstat.items.v2', LS_TOMBS = 'sleepstat.tombs.v2',
     LS_CFG = 'sleepstat.cfg.v2', LS_REC_V1 = 'sleepstat.records.v1', LS_CFG_V1 = 'sleepstat.cfg.v1',
