@@ -907,7 +907,7 @@ function normalizeRow(r, unit){
   }
   if (!date || !total || total < 30 || total > 1500) return null;
 
-  var stage = function(v){ var x = parseDuration(v, 'auto'); return x === null ? null : Math.round(x); };
+  var stage = function(v){ var x = parseDuration(v, 'minute'); return x === null ? null : Math.round(x); };
   var intOrNull = function(v){
     if (v === null || v === undefined || v === '') return null;
     var n = parseInt(String(v).replace(/[^\d-]/g, ''), 10);
@@ -3499,9 +3499,9 @@ function saveAdd(){
   if (!total){ toast('填写睡眠时长，或同时填入睡和起床时间'); return; }
   var rec = {
     date: date, bed: bed, wake: wake, total: Math.round(total),
-    deep: parseDuration($('fDeep').value, 'auto'),
+    deep: parseDuration($('fDeep').value, 'minute'),
     light: null,
-    rem: parseDuration($('fRem').value, 'auto'),
+    rem: parseDuration($('fRem').value, 'minute'),
     awake: null, awakenings: null, score: null,
     note: $('fNote').value.trim()
   };
@@ -3524,7 +3524,7 @@ function findItem(id){
 function exKcalHint(){
   var kgRec = weightRecordAt(state.items, todayIso());
   var kg = kgRec ? kgRec.kg : null;
-  var min = parseDuration($('eMin').value, 'auto');
+  var min = parseDuration($('eMin').value, 'minute');
   var k = kg ? exEstimateKcal($('eType').value, min, kg) : null;
   var el = $('eKcalHint');
   if (!el) return;
@@ -3551,7 +3551,7 @@ function openEx(id){
 function saveEx(){
   var date = $('eDate').value;
   if (!date){ toast('先选日期'); return; }
-  var minutes = parseDuration($('eMin').value, 'auto');
+  var minutes = parseDuration($('eMin').value, 'minute');
   if (!minutes || minutes < 1 || minutes > 1440){ toast('填运动时长（分钟），1 到 1440 之间'); return; }
   var old = state.editId ? findItem(state.editId) : null;
   var kcalManual = numOrNull($('eKcal').value);
